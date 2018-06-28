@@ -71,8 +71,8 @@ int main()
 	string testFile = "";
 	string testFile_2 = "";
 	
-	string direct= "/home/pi/Desktop/700/stereo_dataset/left/";
-	string direct_right = "/home/pi/Desktop/700/stereo_dataset/right/";
+	string direct= "/home/pi/Desktop/700/stereo_dataset/resize_left/";
+	string direct_right = "/home/pi/Desktop/700/stereo_dataset/resize_right/";
 	
 	Mat image;
 	Mat image_2;
