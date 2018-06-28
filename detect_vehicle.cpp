@@ -9,73 +9,181 @@
 #include <stdio.h>
 #include <iostream>
 
+#include <sys/types.h>
+#include <dirent.h>
+
+
 using namespace cv;
 using namespace cv::ml;
 using namespace std;
 
-#define YML_LOCATION "vehicle_detector.yml"
+#define YML_LOCATION "vehicle_detector_filter.yml"
 #define TEST_VIDEO_LOCATION "april21.avi"
 #define IMAGE_SIZE Size(64,64)
 #define CONFIDENCE_THRESHOLD 0.5
-#define BYPASS_CONFIDENCE_CHECK 1
+#define BYPASS_CONFIDENCE_CHECK 0
 
 vector<float> get_svm_detector(const Ptr<SVM> &svm);
 
 int main()
 {	 
 	
-	Mat img = imread("stereo_dataset/I1_000164.png");
-	
-	Mat blurred;
-	
-	GaussianBlur(img,blurred,Size(3,3),0,0, BORDER_DEFAULT);
-	
-	if(img.empty())
-	{
-		cerr << "unable to open" << endl;
-	}
-	
-	
 	clog << "Loading SVM file.. Please wait.. " << endl;
 	Ptr<SVM> svm = StatModel::load<SVM>(YML_LOCATION); ;
 	clog << "YML file loaded!" << endl;
 	
 	vector<float> hog_detector = get_svm_detector(svm);
-	
+		
 	HOGDescriptor hog;
 	hog.winSize = IMAGE_SIZE;
 	hog.setSVMDetector(hog_detector);
 	
-	
-	vector<Rect> detections;
-	vector<double> foundWeights;
-	
-	hog.detectMultiScale(blurred, detections, foundWeights);
-		
 	double confidence;
 	Scalar confidence_colour;
 		
-	for(size_t j = 0; j < detections.size(); j++)
-	{
-		confidence = foundWeights[j] * foundWeights[j];
-		
-		if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
-		{
-			confidence_colour = Scalar(0, confidence * 200, 0);
-			rectangle(img, detections[j], confidence_colour, img.cols / 400 + 1);
-		}
-	}
-		
-	imshow("Vehicle Detection", img);
+	int fileCount;
 	
-	if(waitKey(1) == 27)
+	DIR *dir;
+	struct dirent *ent;
+	if ((dir = opendir ("/home/pi/Desktop/700/stereo_dataset/left")) != NULL) {
+	/* print all the files and directories within directory */
+		while ((ent = readdir (dir)) != NULL) {
+		fileCount++;
+	}
+	closedir (dir);
+	} else {
+		/* could not open directory */
+		perror ("");
+		return EXIT_FAILURE;
+	}
+	
+	cout << "LENGTH IS " << fileCount - 2 << endl;
+	
+	int i = 0;
+	
+	string openFile = "I1_000";
+	
+	string testFile = "";
+	
+	string direct= "/home/pi/Desktop/700/stereo_dataset/left/";
+	
+	Mat image;
+	Mat blurred;
+	Mat original;
+	
+	
+	for (i = 0; i < fileCount - 2; i++) {
+		
+		if (i < 10)
+			
+			testFile = openFile + "00" + to_string(i) + ".png";
+		
+		else if ((i >= 10) && (i < 100)) {
+			
+			testFile = openFile + "0" + to_string(i) + ".png";
+			
+		} else {
+			
+			testFile = openFile + to_string(i) + ".png";		
+			
+		}
+				
+		image = imread(direct + testFile);
+				
+		GaussianBlur(image, blurred, Size(3,3), 0, 0, BORDER_DEFAULT);
+		
+		//cvtColor(blurred, blurred, CV_BGR2GRAY);
+
+		vector<Rect> detections;
+		vector<double> foundWeights;
+		
+		hog.detectMultiScale(blurred, detections, foundWeights);
+		
+		for(size_t i = 0; i < detections.size(); i++)
+		{
+			confidence = foundWeights[i] * foundWeights[i];
+			if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
+			{
+				confidence_colour = Scalar(0, confidence * 200, 0);
+				rectangle(image, detections[i], confidence_colour, image.cols / 400 + 1);
+			}
+		}
+		
+		imshow("Vehicle Detection", image);
+		
+		if(waitKey(30) == 27) //escape
+		{ 
+			return 1;
+		}	
+		
+	}
+	
+	/*
+	VideoCapture sequence("stereo_dataset/I1_%06d.png", CAP_IMAGES);
+	if(!sequence.isOpened())
 	{
+		cerr << "error, cant open sequence \n" << endl;
 		return 1;
 	}
+	*/
 	
 	
-	waitKey(0);
+	//~ clog << "Loading SVM file.. Please wait.. " << endl;
+	//~ Ptr<SVM> svm = StatModel::load<SVM>(YML_LOCATION); ;
+	//~ clog << "YML file loaded!" << endl;
 	
+	//~ vector<float> hog_detector = get_svm_detector(svm);
+	
+	//~ HOGDescriptor hog;
+	//~ hog.winSize = IMAGE_SIZE;
+	//~ hog.setSVMDetector(hog_detector);
+	
+	//~ double confidence;
+	//~ Scalar confidence_colour;
+	
+	//~ Mat image;
+	//~ Mat blurred;
+	//~ Mat original;
+	
+	
+	//~ for(;;)
+	//~ {
+		
+		//~ sequence >> image;
+		//~ original = image;
+		
+		//~ if(image.empty())
+		//~ {
+			//~ cout << "Done" << endl;
+		//~ }
+		
+		
+		//~ GaussianBlur(image, blurred, Size(3,3), 0, 0, BORDER_DEFAULT);
+		
+		//~ //cvtColor(blurred, blurred, CV_BGR2GRAY);
+
+		//~ vector<Rect> detections;
+		//~ vector<double> foundWeights;
+		
+		//~ hog.detectMultiScale(blurred, detections, foundWeights);
+		
+		//~ for(size_t i = 0; i < detections.size(); i++)
+		//~ {
+			//~ confidence = foundWeights[i] * foundWeights[i];
+			//~ if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
+			//~ {
+				//~ confidence_colour = Scalar(0, confidence * 200, 0);
+				//~ rectangle(original, detections[i], confidence_colour, original.cols / 400 + 1);
+			//~ }
+		//~ }
+		
+		//~ imshow("Vehicle Detection", original);
+		
+		//~ if(waitKey(1) == 27) //escape
+		//~ { 
+			//~ return 1;
+		//~ }
+	//~ }		
 }
 
 vector<float> get_svm_detector(const Ptr<SVM> &svm)
