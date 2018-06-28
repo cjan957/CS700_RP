@@ -39,7 +39,11 @@ int main()
 	hog.setSVMDetector(hog_detector);
 	
 	double confidence;
+	double confidence_2;
+	
 	Scalar confidence_colour;
+	Scalar confidence_colour_2;
+
 		
 	int fileCount;
 	
@@ -62,42 +66,61 @@ int main()
 	int i = 0;
 	
 	string openFile = "I1_000";
+	string openSecondFile = "I2_000";
 	
 	string testFile = "";
+	string testFile_2 = "";
 	
 	string direct= "/home/pi/Desktop/700/stereo_dataset/left/";
+	string direct_right = "/home/pi/Desktop/700/stereo_dataset/right/";
 	
 	Mat image;
+	Mat image_2;
 	Mat blurred;
+	Mat blurred_2;
 	Mat original;
+	Mat original_2;
 	
-	
-	for (i = 0; i < fileCount - 2; i++) {
+	//change starting image by changing i?
+	for (i = 129; i < fileCount - 2; i++) {
 		
 		if (i < 10)
+		{
 			
 			testFile = openFile + "00" + to_string(i) + ".png";
-		
-		else if ((i >= 10) && (i < 100)) {
+			testFile_2 = openSecondFile + "00" + to_string(i) + ".png";
+		}
+		else if ((i >= 10) && (i < 100)) 
+		{
 			
 			testFile = openFile + "0" + to_string(i) + ".png";
+			testFile_2 = openSecondFile + "0" + to_string(i) + ".png";
 			
-		} else {
+		} 
+		else 
+		{
 			
-			testFile = openFile + to_string(i) + ".png";		
+			testFile = openFile + to_string(i) + ".png";	
+			testFile_2 = openSecondFile + to_string(i) + ".png";	
 			
 		}
 				
 		image = imread(direct + testFile);
+		image_2 = imread(direct_right + testFile_2);
+		
 				
 		GaussianBlur(image, blurred, Size(3,3), 0, 0, BORDER_DEFAULT);
+		GaussianBlur(image_2, blurred_2, Size(3,3), 0, 0, BORDER_DEFAULT);
 		
 		//cvtColor(blurred, blurred, CV_BGR2GRAY);
 
 		vector<Rect> detections;
 		vector<double> foundWeights;
+		vector<Rect> detections_2;
+		vector<double> foundWeights_2;
 		
 		hog.detectMultiScale(blurred, detections, foundWeights);
+		hog.detectMultiScale(blurred_2, detections_2, foundWeights_2);
 		
 		for(size_t i = 0; i < detections.size(); i++)
 		{
@@ -109,7 +132,19 @@ int main()
 			}
 		}
 		
+		for(size_t i = 0; i < detections_2.size(); i++)
+		{
+			confidence_2 = foundWeights_2[i] * foundWeights_2[i];
+			if((confidence_2 > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
+			{
+				confidence_colour_2 = Scalar(0, confidence_2 * 200, 0);
+				rectangle(image_2, detections_2[i], confidence_colour_2, image_2.cols / 400 + 1);
+			}
+		}
+		
+		
 		imshow("Vehicle Detection", image);
+		imshow("Vehicle Detection 2", image_2);
 		
 		if(waitKey(30) == 27) //escape
 		{ 
@@ -118,72 +153,6 @@ int main()
 		
 	}
 	
-	/*
-	VideoCapture sequence("stereo_dataset/I1_%06d.png", CAP_IMAGES);
-	if(!sequence.isOpened())
-	{
-		cerr << "error, cant open sequence \n" << endl;
-		return 1;
-	}
-	*/
-	
-	
-	//~ clog << "Loading SVM file.. Please wait.. " << endl;
-	//~ Ptr<SVM> svm = StatModel::load<SVM>(YML_LOCATION); ;
-	//~ clog << "YML file loaded!" << endl;
-	
-	//~ vector<float> hog_detector = get_svm_detector(svm);
-	
-	//~ HOGDescriptor hog;
-	//~ hog.winSize = IMAGE_SIZE;
-	//~ hog.setSVMDetector(hog_detector);
-	
-	//~ double confidence;
-	//~ Scalar confidence_colour;
-	
-	//~ Mat image;
-	//~ Mat blurred;
-	//~ Mat original;
-	
-	
-	//~ for(;;)
-	//~ {
-		
-		//~ sequence >> image;
-		//~ original = image;
-		
-		//~ if(image.empty())
-		//~ {
-			//~ cout << "Done" << endl;
-		//~ }
-		
-		
-		//~ GaussianBlur(image, blurred, Size(3,3), 0, 0, BORDER_DEFAULT);
-		
-		//~ //cvtColor(blurred, blurred, CV_BGR2GRAY);
-
-		//~ vector<Rect> detections;
-		//~ vector<double> foundWeights;
-		
-		//~ hog.detectMultiScale(blurred, detections, foundWeights);
-		
-		//~ for(size_t i = 0; i < detections.size(); i++)
-		//~ {
-			//~ confidence = foundWeights[i] * foundWeights[i];
-			//~ if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
-			//~ {
-				//~ confidence_colour = Scalar(0, confidence * 200, 0);
-				//~ rectangle(original, detections[i], confidence_colour, original.cols / 400 + 1);
-			//~ }
-		//~ }
-		
-		//~ imshow("Vehicle Detection", original);
-		
-		//~ if(waitKey(1) == 27) //escape
-		//~ { 
-			//~ return 1;
-		//~ }
-	//~ }		
 }
 
 vector<float> get_svm_detector(const Ptr<SVM> &svm)
