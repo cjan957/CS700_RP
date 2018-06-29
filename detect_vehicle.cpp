@@ -17,7 +17,7 @@ using namespace cv;
 using namespace cv::ml;
 using namespace std;
 
-#define YML_LOCATION "vehicle_detector_filter.yml"
+#define YML_LOCATION "vehicle_detector_no_sobel.yml"
 #define TEST_VIDEO_LOCATION "april21.avi"
 #define IMAGE_SIZE Size(64,64)
 #define CONFIDENCE_THRESHOLD 0.5
@@ -36,6 +36,9 @@ int main()
 		
 	HOGDescriptor hog;
 	hog.winSize = IMAGE_SIZE;
+	hog.blockSize = Size(16,16);
+	hog.cellSize = Size(8,8);
+	
 	hog.setSVMDetector(hog_detector);
 	
 	double confidence;
@@ -82,7 +85,12 @@ int main()
 	Mat original_2;
 	
 	//change starting image by changing i?
-	for (i = 129; i < fileCount - 2; i++) {
+	for (i = 0; i < fileCount - 2; i++) {
+		
+		if(i >= fileCount - 3)
+		{
+			i = 0;
+		}
 		
 		if (i < 10)
 		{
@@ -119,6 +127,7 @@ int main()
 		vector<Rect> detections_2;
 		vector<double> foundWeights_2;
 		
+	
 		hog.detectMultiScale(blurred, detections, foundWeights);
 		hog.detectMultiScale(blurred_2, detections_2, foundWeights_2);
 		
