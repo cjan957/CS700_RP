@@ -28,9 +28,9 @@ vector<float> get_svm_detector(const Ptr<SVM> &svm);
 int main()
 {	 
 	
-	clog << "Loading SVM file.. Please wait.. " << endl;
+	clog << "Loading the Training file.. Please wait.. " << endl;
 	Ptr<SVM> svm = StatModel::load<SVM>(YML_LOCATION); ;
-	clog << "YML file loaded!" << endl;
+	clog << "Training file loaded!" << endl;
 	
 	vector<float> hog_detector = get_svm_detector(svm);
 		
