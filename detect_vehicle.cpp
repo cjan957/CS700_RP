@@ -18,12 +18,17 @@ using namespace cv::ml;
 using namespace std;
 
 #define YML_LOCATION "vehicle_detector_no_sobel.yml"
-#define TEST_VIDEO_LOCATION "april21.avi"
 #define IMAGE_SIZE Size(64,64)
-#define CONFIDENCE_THRESHOLD 0.5
-#define BYPASS_CONFIDENCE_CHECK 0
+
+#define SEQUENCE_SET 0 // 1 for sequence of images, 0 for a single shot (include L and R), specify below
+#define CAMERA_1_LOCATION "/home/pi/Desktop/700/stereo_dataset/resize_left/I1_000167.png"
+#define CAMERA_2_LOCATION "/home/pi/Desktop/700/stereo_dataset/resize_right/I2_000167.png"
+#define START_AT_SEQUENCE 100 // <- specify STARTING SEQUENCE HERE
+#define CONFIDENCE_THRESHOLD 0.5 //specify confidence threshold for when by pass is 0
+#define BYPASS_CONFIDENCE_CHECK 0 //draw black boxes when not confidence
 
 vector<float> get_svm_detector(const Ptr<SVM> &svm);
+void CheckAndDraw(Mat &image, vector<Rect> &detections, vector<double> &foundWeights);
 
 int main()
 {	 
@@ -41,12 +46,20 @@ int main()
 	
 	hog.setSVMDetector(hog_detector);
 	
-	double confidence;
-	double confidence_2;
+	Mat image;
+	Mat image_2;
+	Mat blurred;
+	Mat blurred_2;
+	Mat original;
+	Mat original_2;
 	
-	Scalar confidence_colour;
-	Scalar confidence_colour_2;
+	vector<Rect> detections;
+	vector<double> foundWeights;
+	vector<Rect> detections_2;
+	vector<double> foundWeights_2;
 
+
+#if SEQUENCE_SET	
 		
 	int fileCount;
 	
@@ -76,16 +89,10 @@ int main()
 	
 	string direct= "/home/pi/Desktop/700/stereo_dataset/resize_left/";
 	string direct_right = "/home/pi/Desktop/700/stereo_dataset/resize_right/";
-	
-	Mat image;
-	Mat image_2;
-	Mat blurred;
-	Mat blurred_2;
-	Mat original;
-	Mat original_2;
-	
+
 	//change starting image by changing i?
-	for (i = 0; i < fileCount - 2; i++) {
+	for (i = START_AT_SEQUENCE; i < fileCount - 2; i++) 
+	{
 		
 		if(i >= fileCount - 3)
 		{
@@ -115,45 +122,22 @@ int main()
 				
 		image = imread(direct + testFile);
 		image_2 = imread(direct_right + testFile_2);
-		
-				
+	
 		GaussianBlur(image, blurred, Size(3,3), 0, 0, BORDER_DEFAULT);
 		GaussianBlur(image_2, blurred_2, Size(3,3), 0, 0, BORDER_DEFAULT);
 		
 		//cvtColor(blurred, blurred, CV_BGR2GRAY);
-
-		vector<Rect> detections;
-		vector<double> foundWeights;
-		vector<Rect> detections_2;
-		vector<double> foundWeights_2;
 		
-	
 		hog.detectMultiScale(blurred, detections, foundWeights);
 		hog.detectMultiScale(blurred_2, detections_2, foundWeights_2);
 		
-		for(size_t i = 0; i < detections.size(); i++)
-		{
-			confidence = foundWeights[i] * foundWeights[i];
-			if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
-			{
-				confidence_colour = Scalar(0, confidence * 200, 0);
-				rectangle(image, detections[i], confidence_colour, image.cols / 400 + 1);
-			}
-		}
+		CheckAndDraw(image, detections, foundWeights);
+		CheckAndDraw(image_2, detections_2, foundWeights_2);
 		
-		for(size_t i = 0; i < detections_2.size(); i++)
-		{
-			confidence_2 = foundWeights_2[i] * foundWeights_2[i];
-			if((confidence_2 > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
-			{
-				confidence_colour_2 = Scalar(0, confidence_2 * 200, 0);
-				rectangle(image_2, detections_2[i], confidence_colour_2, image_2.cols / 400 + 1);
-			}
-		}
+		imshow("L Vehicle Detection (Sequence)", image);
+		imshow("R Vehicle Detection 2 (Sequence)", image_2);
 		
-		
-		imshow("Vehicle Detection", image);
-		imshow("Vehicle Detection 2", image_2);
+		cout << "Image : " << i << endl;
 		
 		if(waitKey(30) == 27) //escape
 		{ 
@@ -162,6 +146,45 @@ int main()
 		
 	}
 	
+#else
+	image = imread(CAMERA_1_LOCATION);
+	image_2 = imread(CAMERA_2_LOCATION);
+	
+	GaussianBlur(image, blurred, Size(3,3), 0, 0, BORDER_DEFAULT);
+	GaussianBlur(image_2, blurred_2, Size(3,3), 0, 0, BORDER_DEFAULT);
+	
+	hog.detectMultiScale(blurred, detections, foundWeights);
+	hog.detectMultiScale(blurred_2, detections_2, foundWeights_2);
+	
+	CheckAndDraw(image, detections, foundWeights);
+	CheckAndDraw(image_2, detections_2, foundWeights_2);
+	
+	imshow("L Vehicle Detection (Static)", image);
+	imshow("R Vehicle Detection 2 (Static)", image_2);
+		
+	if(waitKey(0) == 27) //escape
+	{ 
+		return 1;
+	}	
+
+#endif
+}
+
+
+void CheckAndDraw(Mat &image, vector<Rect> &detections, vector<double> &foundWeights)
+{
+	double confidence;	
+	Scalar confidence_colour;
+	
+	for(size_t i = 0; i < detections.size(); i++)
+	{
+		confidence = foundWeights[i] * foundWeights[i];
+		if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
+		{
+			confidence_colour = Scalar(0, confidence * 200, 0);
+			rectangle(image, detections[i], confidence_colour, image.cols / 400 + 1);
+		}
+	}
 }
 
 vector<float> get_svm_detector(const Ptr<SVM> &svm)
