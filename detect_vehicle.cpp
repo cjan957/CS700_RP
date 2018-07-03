@@ -6,11 +6,19 @@
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
 
+
+#include <string.h>
+#include <string>
+#include <utility>
+#include <opencv2/calib3d.hpp>
+
 #include <stdio.h>
 #include <iostream>
 
 #include <sys/types.h>
 #include <dirent.h>
+
+#include <typeinfo>
 
 
 using namespace cv;
@@ -27,14 +35,22 @@ using namespace std;
 #define CONFIDENCE_THRESHOLD 0.5 //specify confidence threshold for when by pass is 0
 #define BYPASS_CONFIDENCE_CHECK 0 //draw black boxes when not confidence
 
+#define LOOP 0
+
+
+
 vector<float> get_svm_detector(const Ptr<SVM> &svm);
 void CheckAndDraw(Mat &image, vector<Rect> &detections, vector<double> &foundWeights);
+Point getPoints(Mat &image, vector<Rect> &detections, vector<double> &foundWeights);
+
+
+float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<double> &foundWeights_L, vector<Rect> &detections_R, vector<double> &foundWeights_R);
 
 int main()
 {	 
 	
 	clog << "Loading the Training file.. Please wait.. " << endl;
-	Ptr<SVM> svm = StatModel::load<SVM>(YML_LOCATION); ;
+	Ptr<SVM> svm = StatModel::load<SVM>(YML_LOCATION);
 	clog << "Training file loaded!" << endl;
 	
 	vector<float> hog_detector = get_svm_detector(svm);
@@ -53,10 +69,26 @@ int main()
 	Mat original;
 	Mat original_2;
 	
+	Mat ROI_L;
+	Mat ROI_R;
+	
+	Mat disparity, disp8;
+	Mat grayL;
+	Mat grayR;
+	Ptr<StereoBM> sbm = StereoBM::create(256, 17);
+	
+	Mat ROI_disp_L, ROI_disp_R;	
+	
 	vector<Rect> detections;
 	vector<double> foundWeights;
 	vector<Rect> detections_2;
 	vector<double> foundWeights_2;
+
+	float dist;
+	Point pointLeft;
+	Point pointRight;
+	
+
 
 
 #if SEQUENCE_SET	
@@ -77,7 +109,9 @@ int main()
 		return EXIT_FAILURE;
 	}
 	
-	cout << "LENGTH IS " << fileCount - 2 << endl;
+	fileCount -= 2;
+	
+	cout << "LENGTH IS " << fileCount<< endl;
 	
 	int i = 0;
 	
@@ -91,14 +125,9 @@ int main()
 	string direct_right = "/home/pi/Desktop/700/stereo_dataset/resize_right/";
 
 	//change starting image by changing i?
-	for (i = START_AT_SEQUENCE; i < fileCount - 2; i++) 
+	for (i = START_AT_SEQUENCE; i < fileCount; i++) 
 	{
-		
-		if(i >= fileCount - 3)
-		{
-			i = 0;
-		}
-		
+				
 		if (i < 10)
 		{
 			
@@ -123,13 +152,23 @@ int main()
 		image = imread(direct + testFile);
 		image_2 = imread(direct_right + testFile_2);
 	
+		
+		// Grayscale the image
+		//cvtColor(image, image, CV_BGR2GRAY);
+		//cvtColor(image_2, image_2, CV_BGR2GRAY);
+		
+		// Remove the noise
 		GaussianBlur(image, blurred, Size(3,3), 0, 0, BORDER_DEFAULT);
 		GaussianBlur(image_2, blurred_2, Size(3,3), 0, 0, BORDER_DEFAULT);
 		
-		//cvtColor(blurred, blurred, CV_BGR2GRAY);
+		// Limit the ROI (Region of Interest)
+		Rect roi = Rect(0, 0, 392, blurred.size().height);
+		ROI_L = Mat(blurred, roi);
+		ROI_R = Mat(blurred_2, roi);
 		
-		hog.detectMultiScale(blurred, detections, foundWeights);
-		hog.detectMultiScale(blurred_2, detections_2, foundWeights_2);
+		
+		hog.detectMultiScale(ROI_L, detections, foundWeights);
+		hog.detectMultiScale(ROI_R, detections_2, foundWeights_2);
 		
 		CheckAndDraw(image, detections, foundWeights);
 		CheckAndDraw(image_2, detections_2, foundWeights_2);
@@ -139,23 +178,76 @@ int main()
 		
 		cout << "Image : " << i << endl;
 		
+		#if LOOP
+			// Loop back the video
+			if(i == fileCount - 1)
+			{
+				i = 0;
+			}
+		#endif	
+		
 		if(waitKey(30) == 27) //escape
 		{ 
 			return 1;
-		}	
+		}
+		
+
 		
 	}
 	
 #else
+	
+	const double BASELINE = -(-3.745166) / 6.471884; // Distance between the two cameras
+	const double FOCAL = 647.1884; // Focal Length in pixels
+	
 	image = imread(CAMERA_1_LOCATION);
 	image_2 = imread(CAMERA_2_LOCATION);
+		
+	// ------------ DISPARITY -------------
+	// Grayscale the image
+	cvtColor(image, grayL, CV_BGR2GRAY);
+	cvtColor(image_2, grayR, CV_BGR2GRAY);
 	
+	// Remove the noise
+	GaussianBlur(grayL, grayL, Size(3,3), 0, 0, BORDER_DEFAULT);
+	GaussianBlur(grayR, grayR, Size(3,3), 0, 0, BORDER_DEFAULT);
+	
+	disparity = Mat(grayL.size().height, grayL.size().width, CV_16S);
+	
+	sbm->setUniquenessRatio(15);
+	sbm->setTextureThreshold(0.0002);
+	sbm->compute(grayL, grayR, disparity);
+	
+	normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
+	
+	imshow("Disparity Map", disp8);
+	
+	cout << "pixel value (original): " << (int)disp8.at<unsigned char>(110,327) << endl;
+	cout << "distance : " << (FOCAL*BASELINE) / (int)disp8.at<unsigned char>(110,327) << " m" << endl;
+	
+	
+	// ------- NORMAL OBJECT DETECTION
+	// Remove the noise
 	GaussianBlur(image, blurred, Size(3,3), 0, 0, BORDER_DEFAULT);
 	GaussianBlur(image_2, blurred_2, Size(3,3), 0, 0, BORDER_DEFAULT);
 	
+		
 	hog.detectMultiScale(blurred, detections, foundWeights);
 	hog.detectMultiScale(blurred_2, detections_2, foundWeights_2);
+		
+	//-----------------------------------------------------//
 	
+	dist = disparityMap(grayL, grayR, detections, foundWeights, detections_2, foundWeights_2);
+		
+	String dist_str = "Distance: " + to_string(dist) + " m";
+	
+	pointLeft = getPoints(image, detections, foundWeights);
+	pointRight = getPoints(image_2, detections_2, foundWeights_2);
+	
+	putText(image, dist_str, pointLeft, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
+	putText(image_2, dist_str, pointRight, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
+
+			
 	CheckAndDraw(image, detections, foundWeights);
 	CheckAndDraw(image_2, detections_2, foundWeights_2);
 	
@@ -170,20 +262,108 @@ int main()
 #endif
 }
 
+float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<double> &foundWeights_L, vector<Rect> &detections_R, vector<double> &foundWeights_R)
+{
+
+	const double BASELINE = -(-3.745166) / 6.471884; // Distance between the two cameras
+	const double FOCAL = 647.1884; // Focal Length in pixels
+	
+	Ptr<StereoBM> sbm_crop = StereoBM::create(32, 9);
+	
+	Mat disparity, disp8;	
+	Mat ROI_disp_L, ROI_disp_R;	
+
+	Point pointLeft;
+	Point pointRight;
+	
+	Rect roi_L, roi_R;
+
+	double confidence;	
+	
+	// Left Image
+	for(size_t i = 0; i < detections_L.size(); i++)
+	{
+		confidence = foundWeights_L[i] * foundWeights_L[i];
+		if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
+		{
+			pointLeft = Point(detections_L[i].x, detections_L[i].y);
+		}
+	}
+	
+	// Right Image
+	for(size_t i = 0; i < detections_R.size(); i++)
+	{
+		confidence = foundWeights_R[i] * foundWeights_R[i];
+		if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
+		{
+			pointRight = Point(detections_R[i].x, detections_R[i].y);
+		}
+	}
+	
+	roi_L = Rect(pointLeft.x,pointLeft.y,100,100);
+	ROI_disp_L = Mat(imageL, roi_L);
+	
+	roi_R = Rect(pointRight.x,pointLeft.y,100,100);
+	ROI_disp_R = Mat(imageR, roi_R);
+	
+	imshow("LEFT IMAGE", ROI_disp_L);
+	imshow("RIGHT IMAGE", ROI_disp_R);
+	
+	disparity = Mat(ROI_disp_L.size().height, ROI_disp_L.size().width, CV_16S);
+	
+	sbm_crop->setUniquenessRatio(15);
+	sbm_crop->setTextureThreshold(0.0002);
+	sbm_crop->compute(ROI_disp_L, ROI_disp_R, disparity);
+	
+	normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
+	
+	imshow("DISPARITY", disp8);
+	
+	cout << "pixel value: " << (int)disp8.at<unsigned char>(50, 50) << endl;
+	float final_dist = (FOCAL*BASELINE) / (int)disp8.at<unsigned char>(50, 50);
+	
+	cout << "distance : " << final_dist << " m" << endl;
+	
+	return final_dist;
+	
+	
+	
+}
+
+Point getPoints(Mat &image, vector<Rect> &detections, vector<double> &foundWeights)
+{
+	double confidence;	
+		
+	Point point0;
+	
+	for(size_t i = 0; i < detections.size(); i++)
+	{
+		
+		confidence = foundWeights[i] * foundWeights[i];
+		if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
+		{			
+			point0 = Point(detections[i].x, detections[i].y);
+		} 
+	}
+	
+	return point0;
+}
+
 
 void CheckAndDraw(Mat &image, vector<Rect> &detections, vector<double> &foundWeights)
 {
 	double confidence;	
 	Scalar confidence_colour;
-	
+		
 	for(size_t i = 0; i < detections.size(); i++)
 	{
+		
 		confidence = foundWeights[i] * foundWeights[i];
 		if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
-		{
+		{			
 			confidence_colour = Scalar(0, confidence * 200, 0);
-			rectangle(image, detections[i], confidence_colour, image.cols / 400 + 1);
-		}
+			rectangle(image, detections[i], confidence_colour, image.cols / 400 + 1);			
+		} 
 	}
 }
 

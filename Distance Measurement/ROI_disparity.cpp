@@ -1,4 +1,4 @@
-#include "stdafx.h"
+//#include "stdafx.h"
 
 // Disparity Map
 #include <stdio.h>
@@ -16,17 +16,20 @@ using namespace std;
 int main()
 {
 
+	clog << "OPENS" << endl;
+	
 	const double BASELINE = -(-3.745166) / 6.471884; // Distance between the two cameras
 	const double FOCAL = 647.1884; // Focal Length in pixels
 
 	Mat g1, g2, disp8, disp8_crop;
 	Mat smallLeft, smallRight;
 
-	Mat leftimg = imread("C:/Users/josha/Documents/Uni/2018/Project/2010_03_04_drive_0041/I1_000153.png");
-	Mat rightimg = imread("C:/Users/josha/Documents/Uni/2018/Project/2010_03_04_drive_0041/I2_000153.png");
+	Mat leftimg = imread("/home/pi/Desktop/700/stereo_dataset/left/I1_000153.png");
+	Mat rightimg = imread("/home/pi/Desktop/700/stereo_dataset/right/I2_000153.png");
 
 	if ((!leftimg.data) || (!rightimg.data))
 	{
+		cout << "FAILED" << endl;
 		return -1;
 	}
 
@@ -44,11 +47,11 @@ int main()
 	Mat disparity_left = Mat(imagesize.height, imagesize.width, CV_16S);
 	Mat disparity_right = Mat(imagesize.height, imagesize.width, CV_16S);
 
-	// (x,y, image width
-	Rect roi_L = Rect(607, 146, 163, 133);
+	// (x,y, image width,image height)
+	Rect roi_L = Rect(607, 146, 100, 100);
 	smallLeft = Mat(g1, roi_L);
 
-	Rect roi_R = Rect(560, 150, 163, 133);
+	Rect roi_R = Rect(560, 150, 100, 100);
 	smallRight = Mat(g2, roi_R);
 	
 	imshow("Test_L", smallLeft);
@@ -59,7 +62,7 @@ int main()
 
 	Ptr<StereoBM> sbm = StereoBM::create(256, 17);
 
-	Ptr<StereoBM> sbm_crop = StereoBM::create(64, 11);
+	Ptr<StereoBM> sbm_crop = StereoBM::create(32, 11);
 
 	sbm->setUniquenessRatio(15);
 	sbm->setTextureThreshold(0.0002);
