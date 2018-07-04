@@ -20,6 +20,9 @@
 
 #include <typeinfo>
 
+#include <iomanip>
+#include <sstream>
+
 
 using namespace cv;
 using namespace cv::ml;
@@ -28,14 +31,14 @@ using namespace std;
 #define YML_LOCATION "vehicle_detector_no_sobel.yml"
 #define IMAGE_SIZE Size(64,64)
 
-#define SEQUENCE_SET 0 // 1 for sequence of images, 0 for a single shot (include L and R), specify below
-#define CAMERA_1_LOCATION "/home/pi/Desktop/700/stereo_dataset/resize_left/I1_000167.png"
-#define CAMERA_2_LOCATION "/home/pi/Desktop/700/stereo_dataset/resize_right/I2_000167.png"
+#define SEQUENCE_SET 1 // 1 for sequence of images, 0 for a single shot (include L and R), specify below
+#define CAMERA_1_LOCATION "/home/pi/Desktop/700/stereo_dataset/resize_left/I1_000122.png"
+#define CAMERA_2_LOCATION "/home/pi/Desktop/700/stereo_dataset/resize_right/I2_000122.png"
 #define START_AT_SEQUENCE 100 // <- specify STARTING SEQUENCE HERE
 #define CONFIDENCE_THRESHOLD 0.5 //specify confidence threshold for when by pass is 0
 #define BYPASS_CONFIDENCE_CHECK 0 //draw black boxes when not confidence
 
-#define LOOP 0
+#define LOOP 1
 
 
 
@@ -48,6 +51,9 @@ float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<do
 
 int main()
 {	 
+	
+	
+	cout << setprecision(2) << fixed;
 	
 	clog << "Loading the Training file.. Please wait.. " << endl;
 	Ptr<SVM> svm = StatModel::load<SVM>(YML_LOCATION);
@@ -87,8 +93,7 @@ int main()
 	float dist;
 	Point pointLeft;
 	Point pointRight;
-	
-
+	String dist_str;
 
 
 #if SEQUENCE_SET	
@@ -154,12 +159,12 @@ int main()
 	
 		
 		// Grayscale the image
-		//cvtColor(image, image, CV_BGR2GRAY);
-		//cvtColor(image_2, image_2, CV_BGR2GRAY);
+		cvtColor(image, grayL, CV_BGR2GRAY);
+		cvtColor(image_2, grayR, CV_BGR2GRAY);
 		
 		// Remove the noise
-		GaussianBlur(image, blurred, Size(3,3), 0, 0, BORDER_DEFAULT);
-		GaussianBlur(image_2, blurred_2, Size(3,3), 0, 0, BORDER_DEFAULT);
+		GaussianBlur(grayL, blurred, Size(3,3), 0, 0, BORDER_DEFAULT);
+		GaussianBlur(grayR, blurred_2, Size(3,3), 0, 0, BORDER_DEFAULT);
 		
 		// Limit the ROI (Region of Interest)
 		Rect roi = Rect(0, 0, 392, blurred.size().height);
@@ -169,6 +174,30 @@ int main()
 		
 		hog.detectMultiScale(ROI_L, detections, foundWeights);
 		hog.detectMultiScale(ROI_R, detections_2, foundWeights_2);
+		
+		disparity = Mat(grayL.size().height, grayL.size().width, CV_16S);
+	
+		sbm->setUniquenessRatio(15);
+		sbm->setTextureThreshold(0.0002);
+		sbm->compute(grayL, grayR, disparity);
+	
+		normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
+	
+		imshow("Disparity Map - FULL", disp8);
+		
+		dist = disparityMap(ROI_L, ROI_R, detections, foundWeights, detections_2, foundWeights_2);
+		
+		stringstream stream;
+		stream << fixed << setprecision(2) << dist;
+		string s = stream.str();
+		dist_str = "Distance: " + s + " m";
+	
+		pointLeft = getPoints(ROI_L, detections, foundWeights);
+		pointRight = getPoints(ROI_R, detections_2, foundWeights_2);
+	
+		putText(image, dist_str, pointLeft, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
+		putText(image_2, dist_str, pointRight, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
+		
 		
 		CheckAndDraw(image, detections, foundWeights);
 		CheckAndDraw(image_2, detections_2, foundWeights_2);
@@ -185,6 +214,11 @@ int main()
 				i = 0;
 			}
 		#endif	
+		
+		//~ if (waitKey(999999) == 37)
+		//~ {
+			//~ continue;
+		//~ }
 		
 		if(waitKey(30) == 27) //escape
 		{ 
@@ -239,9 +273,18 @@ int main()
 	
 	dist = disparityMap(grayL, grayR, detections, foundWeights, detections_2, foundWeights_2);
 		
-	String dist_str = "Distance: " + to_string(dist) + " m";
+	stringstream stream;
 	
+	stream << fixed << setprecision(2) << dist;
+	
+	string s = stream.str();
+	
+	String dist_str = "Distance: " + s + " m";
+	
+	cout << "------------- LEFT -------------" << endl;
 	pointLeft = getPoints(image, detections, foundWeights);
+	
+	cout << "------------- RIGHT -------------" << endl;
 	pointRight = getPoints(image_2, detections_2, foundWeights_2);
 	
 	putText(image, dist_str, pointLeft, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
@@ -267,6 +310,7 @@ float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<do
 
 	const double BASELINE = -(-3.745166) / 6.471884; // Distance between the two cameras
 	const double FOCAL = 647.1884; // Focal Length in pixels
+	float final_dist = 0;
 	
 	Ptr<StereoBM> sbm_crop = StereoBM::create(32, 9);
 	
@@ -300,29 +344,33 @@ float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<do
 		}
 	}
 	
-	roi_L = Rect(pointLeft.x,pointLeft.y,100,100);
-	ROI_disp_L = Mat(imageL, roi_L);
 	
-	roi_R = Rect(pointRight.x,pointLeft.y,100,100);
-	ROI_disp_R = Mat(imageR, roi_R);
+	if ((pointLeft.x != 0) && (pointRight.x != 0)) 
+	{
+			
+		roi_L = Rect(pointLeft.x,pointLeft.y,100,100);
+		ROI_disp_L = Mat(imageL, roi_L);
 	
-	imshow("LEFT IMAGE", ROI_disp_L);
-	imshow("RIGHT IMAGE", ROI_disp_R);
+		roi_R = Rect(pointRight.x,pointLeft.y,100,100);
+		ROI_disp_R = Mat(imageR, roi_R);
 	
-	disparity = Mat(ROI_disp_L.size().height, ROI_disp_L.size().width, CV_16S);
+		imshow("LEFT IMAGE", ROI_disp_L);
+		imshow("RIGHT IMAGE", ROI_disp_R);
 	
-	sbm_crop->setUniquenessRatio(15);
-	sbm_crop->setTextureThreshold(0.0002);
-	sbm_crop->compute(ROI_disp_L, ROI_disp_R, disparity);
+		disparity = Mat(ROI_disp_L.size().height, ROI_disp_L.size().width, CV_16S);
 	
-	normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
+		sbm_crop->setUniquenessRatio(15);
+		sbm_crop->setTextureThreshold(0.0002);
+		sbm_crop->compute(ROI_disp_L, ROI_disp_R, disparity);
 	
-	imshow("DISPARITY", disp8);
+		normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
 	
-	cout << "pixel value: " << (int)disp8.at<unsigned char>(50, 50) << endl;
-	float final_dist = (FOCAL*BASELINE) / (int)disp8.at<unsigned char>(50, 50);
+		imshow("DISPARITY", disp8);
 	
-	cout << "distance : " << final_dist << " m" << endl;
+		cout << "pixel value: " << (int)disp8.at<unsigned char>(50, 50) << endl;
+		final_dist = (FOCAL*BASELINE) / (int)disp8.at<unsigned char>(50, 50);
+		cout << "distance : " << final_dist << " m" << endl;
+	}
 	
 	return final_dist;
 	
@@ -342,8 +390,11 @@ Point getPoints(Mat &image, vector<Rect> &detections, vector<double> &foundWeigh
 		confidence = foundWeights[i] * foundWeights[i];
 		if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
 		{			
-			point0 = Point(detections[i].x, detections[i].y);
-		} 
+			//cout << "WITHIN THRESHOLD " << detections[i] << endl;
+			point0 = Point(detections[i].x, detections[i].y + 100);
+		} else {
+			//cout << detections[i] << endl;
+		}
 	}
 	
 	return point0;
