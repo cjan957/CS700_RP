@@ -348,10 +348,10 @@ float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<do
 	if ((pointLeft.x != 0) && (pointRight.x != 0)) 
 	{
 			
-		roi_L = Rect(pointLeft.x,pointLeft.y,100,100);
+		roi_L = Rect(pointLeft.x -5 ,pointLeft.y,105,105);
 		ROI_disp_L = Mat(imageL, roi_L);
 	
-		roi_R = Rect(pointRight.x,pointLeft.y,100,100);
+		roi_R = Rect(pointRight.x - 5,pointLeft.y,105,105);
 		ROI_disp_R = Mat(imageR, roi_R);
 	
 		imshow("LEFT IMAGE", ROI_disp_L);
@@ -368,8 +368,8 @@ float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<do
 		imshow("DISPARITY", disp8);
 	
 		cout << "HERE" << endl;
-		cout << "pixel value: " << (int)disp8.at<unsigned char>(50, 50) << endl;
-		final_dist = (FOCAL*BASELINE) / (int)disp8.at<unsigned char>(50, 50);
+		cout << "pixel value: " << (int)disp8.at<unsigned char>(60, 60) << endl;
+		final_dist = (FOCAL*BASELINE) / (int)disp8.at<unsigned char>(60, 60);
 		cout << "distance : " << final_dist << " m" << endl;
 	}
 	
@@ -392,7 +392,7 @@ Point getPoints(Mat &image, vector<Rect> &detections, vector<double> &foundWeigh
 		if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
 		{			
 			//cout << "WITHIN THRESHOLD " << detections[i] << endl;
-			point0 = Point(detections[i].x, detections[i].y + 150);
+			point0 = Point(detections[i].x, detections[i].y + 105);
 		} else {
 			//cout << detections[i] << endl;
 		}
