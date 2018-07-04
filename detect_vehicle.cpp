@@ -81,7 +81,7 @@ int main()
 	Mat disparity, disp8;
 	Mat grayL;
 	Mat grayR;
-	Ptr<StereoBM> sbm = StereoBM::create(256, 17);
+	Ptr<StereoBM> sbm = StereoBM::create(64, 21);
 	
 	Mat ROI_disp_L, ROI_disp_R;	
 	
@@ -312,7 +312,7 @@ float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<do
 	const double FOCAL = 647.1884; // Focal Length in pixels
 	float final_dist = 0;
 	
-	Ptr<StereoBM> sbm_crop = StereoBM::create(32, 9);
+	Ptr<StereoBM> sbm_crop = StereoBM::create(16, 7);
 	
 	Mat disparity, disp8;	
 	Mat ROI_disp_L, ROI_disp_R;	
@@ -367,6 +367,7 @@ float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<do
 	
 		imshow("DISPARITY", disp8);
 	
+		cout << "HERE" << endl;
 		cout << "pixel value: " << (int)disp8.at<unsigned char>(50, 50) << endl;
 		final_dist = (FOCAL*BASELINE) / (int)disp8.at<unsigned char>(50, 50);
 		cout << "distance : " << final_dist << " m" << endl;
@@ -391,7 +392,7 @@ Point getPoints(Mat &image, vector<Rect> &detections, vector<double> &foundWeigh
 		if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
 		{			
 			//cout << "WITHIN THRESHOLD " << detections[i] << endl;
-			point0 = Point(detections[i].x, detections[i].y + 100);
+			point0 = Point(detections[i].x, detections[i].y + 150);
 		} else {
 			//cout << detections[i] << endl;
 		}
