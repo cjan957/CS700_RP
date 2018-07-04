@@ -31,9 +31,9 @@ using namespace std;
 #define YML_LOCATION "vehicle_detector_no_sobel.yml"
 #define IMAGE_SIZE Size(64,64)
 
-#define SEQUENCE_SET 1 // 1 for sequence of images, 0 for a single shot (include L and R), specify below
-#define CAMERA_1_LOCATION "/home/pi/Desktop/700/stereo_dataset/resize_left/I1_000122.png"
-#define CAMERA_2_LOCATION "/home/pi/Desktop/700/stereo_dataset/resize_right/I2_000122.png"
+#define SEQUENCE_SET 0 // 1 for sequence of images, 0 for a single shot (include L and R), specify below
+#define CAMERA_1_LOCATION "/home/pi/Desktop/700/stereo_dataset/resize_left/I1_000163.png"
+#define CAMERA_2_LOCATION "/home/pi/Desktop/700/stereo_dataset/resize_right/I2_000163.png"
 #define START_AT_SEQUENCE 100 // <- specify STARTING SEQUENCE HERE
 #define CONFIDENCE_THRESHOLD 0.5 //specify confidence threshold for when by pass is 0
 #define BYPASS_CONFIDENCE_CHECK 0 //draw black boxes when not confidence
@@ -243,10 +243,10 @@ int main()
 	cvtColor(image_2, grayR, CV_BGR2GRAY);
 	
 	// Remove the noise
-	GaussianBlur(grayL, grayL, Size(3,3), 0, 0, BORDER_DEFAULT);
-	GaussianBlur(grayR, grayR, Size(3,3), 0, 0, BORDER_DEFAULT);
+	GaussianBlur(grayL, blurred, Size(3,3), 0, 0, BORDER_DEFAULT);
+	GaussianBlur(grayR, blurred_2, Size(3,3), 0, 0, BORDER_DEFAULT);
 	
-	disparity = Mat(grayL.size().height, grayL.size().width, CV_16S);
+	disparity = Mat(blurred.size().height, blurred.size().width, CV_16S);
 	
 	sbm->setUniquenessRatio(15);
 	sbm->setTextureThreshold(0.0002);
@@ -259,38 +259,24 @@ int main()
 	cout << "pixel value (original): " << (int)disp8.at<unsigned char>(110,327) << endl;
 	cout << "distance : " << (FOCAL*BASELINE) / (int)disp8.at<unsigned char>(110,327) << " m" << endl;
 	
-	
-	// ------- NORMAL OBJECT DETECTION
-	// Remove the noise
-	GaussianBlur(image, blurred, Size(3,3), 0, 0, BORDER_DEFAULT);
-	GaussianBlur(image_2, blurred_2, Size(3,3), 0, 0, BORDER_DEFAULT);
-	
-		
+	//-----------------------------------------------------//
+
 	hog.detectMultiScale(blurred, detections, foundWeights);
 	hog.detectMultiScale(blurred_2, detections_2, foundWeights_2);
-		
-	//-----------------------------------------------------//
-	
-	dist = disparityMap(grayL, grayR, detections, foundWeights, detections_2, foundWeights_2);
+			
+	dist = disparityMap(blurred, blurred_2, detections, foundWeights, detections_2, foundWeights_2);
 		
 	stringstream stream;
-	
 	stream << fixed << setprecision(2) << dist;
-	
 	string s = stream.str();
+	dist_str = "Distance: " + s + " m";
 	
-	String dist_str = "Distance: " + s + " m";
-	
-	cout << "------------- LEFT -------------" << endl;
-	pointLeft = getPoints(image, detections, foundWeights);
-	
-	cout << "------------- RIGHT -------------" << endl;
-	pointRight = getPoints(image_2, detections_2, foundWeights_2);
+	pointLeft = getPoints(blurred, detections, foundWeights);
+	pointRight = getPoints(blurred_2, detections_2, foundWeights_2);
 	
 	putText(image, dist_str, pointLeft, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
 	putText(image_2, dist_str, pointRight, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
 
-			
 	CheckAndDraw(image, detections, foundWeights);
 	CheckAndDraw(image_2, detections_2, foundWeights_2);
 	
@@ -367,7 +353,6 @@ float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<do
 	
 		imshow("DISPARITY", disp8);
 	
-		cout << "HERE" << endl;
 		cout << "pixel value: " << (int)disp8.at<unsigned char>(60, 60) << endl;
 		final_dist = (FOCAL*BASELINE) / (int)disp8.at<unsigned char>(60, 60);
 		cout << "distance : " << final_dist << " m" << endl;
