@@ -70,7 +70,7 @@ static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
 
 int main()
 {	 
-	
+	setNumThreads(0);
 	
 	cout << setprecision(2) << fixed;
 	
