@@ -253,7 +253,7 @@ int main()
 	ioctl(inst_fd, PERF_EVENT_IOC_DISABLE, 0);
     read(inst_fd, &inst_count, sizeof(long long));
 
-    printf("Used %lld instructions\n", inst_count);
+    printf("Used %lld cycles\n", inst_count);
 
     close(inst_fd);	
 	
