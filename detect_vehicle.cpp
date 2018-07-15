@@ -1,4 +1,4 @@
-#include <opencv2/opencv.hpp>
+ #include <opencv2/opencv.hpp>
 #include <opencv2/ml/ml.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgcodecs.hpp>
@@ -6,6 +6,10 @@
 #include <opencv2/core.hpp>
 #include <opencv2/videoio.hpp>
 
+//SIFT and KEYPOINT STUFF
+#include "opencv2/features2d.hpp"
+#include "opencv2/xfeatures2d.hpp"
+//end SIFT and KEYPOINT STUFF
 
 #include <string.h>
 #include <string>
@@ -42,20 +46,19 @@ int inst_fd;
 using namespace cv;
 using namespace cv::ml;
 using namespace std;
+using namespace cv::xfeatures2d;
 
-#define YML_LOCATION "vehicle_detector_no_sobel.yml"
+#define YML_LOCATION "vehicle_detector_filter.yml"
 #define IMAGE_SIZE Size(64,64)
 
 #define SEQUENCE_SET 1 // 1 for sequence of images, 0 for a single shot (include L and R), specify below
-#define CAMERA_1_LOCATION "/home/pi/Desktop/700/stereo_dataset/resize_left/I1_000163.png"
-#define CAMERA_2_LOCATION "/home/pi/Desktop/700/stereo_dataset/resize_right/I2_000163.png"
+#define CAMERA_1_LOCATION "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left/I1_000163.png"
+#define CAMERA_2_LOCATION "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_right/I2_000163.png"
 #define START_AT_SEQUENCE 100 // <- specify STARTING SEQUENCE HERE
-#define CONFIDENCE_THRESHOLD 0.5 //specify confidence threshold for when by pass is 0
+#define CONFIDENCE_THRESHOLD 0.5 //specify confidence threshold for when bypass is 0
 #define BYPASS_CONFIDENCE_CHECK 0 //draw black boxes when not confidence
 
 #define LOOP 0
-
-
 
 vector<float> get_svm_detector(const Ptr<SVM> &svm);
 void CheckAndDraw(Mat &image, vector<Rect> &detections, vector<double> &foundWeights);
@@ -63,10 +66,12 @@ Point getPoints(Mat &image, vector<Rect> &detections, vector<double> &foundWeigh
 
 
 float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<double> &foundWeights_L, vector<Rect> &detections_R, vector<double> &foundWeights_R);
+void SURFMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>&detections_R);
 
 static void setup_counters(void);
-static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
-                int cpu, int group_fd, unsigned long flags);
+static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid, 
+	int cpu, int group_fd, unsigned long flags);
+
 
 int main()
 {	 
@@ -115,13 +120,13 @@ int main()
 	String dist_str;
 
 
-#if SEQUENCE_SET	
+#if SEQUENCE_SET	//sequence of images (video)
 		
 	int fileCount;
 	
 	DIR *dir;
 	struct dirent *ent;
-	if ((dir = opendir ("/home/pi/Desktop/700/stereo_dataset/left")) != NULL) {
+	if ((dir = opendir ("/home/pi/Desktop/CS700_RP/stereo_dataset/left")) != NULL) {
 	/* print all the files and directories within directory */
 		while ((ent = readdir (dir)) != NULL) {
 		fileCount++;
@@ -145,8 +150,8 @@ int main()
 	string testFile = "";
 	string testFile_2 = "";
 	
-	string direct= "/home/pi/Desktop/700/stereo_dataset/resize_left/";
-	string direct_right = "/home/pi/Desktop/700/stereo_dataset/resize_right/";
+	string direct= "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left/";
+	string direct_right = "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_right/";
 
 	cout << "TIMER STARTED " << endl;
 	
@@ -259,7 +264,7 @@ int main()
 	
 	
 	
-#else
+#else //STATIC IMAGES
 	
 	const double BASELINE = -(-3.745166) / 6.471884; // Distance between the two cameras
 	const double FOCAL = 647.1884; // Focal Length in pixels
@@ -319,6 +324,54 @@ int main()
 	}	
 
 #endif
+}
+
+void SURFMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>&detections_R)
+{
+	//the larger  = the few/important keypoints
+	//the smaller = the more/less-important keypoints
+	int minHessian = 300; //<- Adjustable
+	Mat descriptorLeftImage, descriptorRightImage;
+	vector<KeyPoint> keypointLeftImage, keypointRightImage;
+	
+	Ptr<SURF> featureDetector = SURF::create();
+	featureDetector->setHessianThreshold(300);
+	
+	//IMAGE L AND R AREN'T CORRECT YET !
+	featureDetector->detectAndCompute(imageL, Mat(), keypointLeftImage, descriptorLeftImage);
+	featureDetector->detectAndCompute(imageR, Mat(), keypointRightImage, descriptorRightImage);
+	
+	FlannBasedMatcher matcher;
+	vector<DMatch> matches;
+	matcher.match(descriptorLeftImage, descriptorRightImage, matches);
+	
+	double max_dist = 0;
+	double min_dist = 100;
+	double dist = 0;
+	
+	for(int i = 0; i < descriptorLeftImage.rows; i++)
+	{
+		dist = matches[i].distance;
+		
+		if(dist < min_dist)
+		{
+			min_dist = dist;
+		}
+		if(dist > max_dist)
+		{
+			max_dist = dist;
+		}
+	}
+	
+	vector<DMatch> good_matches;
+	for(int i = 0; i < descriptorLeftImage.rows; i++)
+	{
+		if(matches[i].distance <= max(2 * min_dist, 0.02))
+		{
+			good_matches.push_back(matches[i]);
+		}
+	}
+
 }
 
 float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<double> &foundWeights_L, vector<Rect> &detections_R, vector<double> &foundWeights_R)
