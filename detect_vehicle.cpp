@@ -331,47 +331,66 @@ void SURFMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>
 	//the larger  = the few/important keypoints
 	//the smaller = the more/less-important keypoints
 	int minHessian = 300; //<- Adjustable
-	Mat descriptorLeftImage, descriptorRightImage;
-	vector<KeyPoint> keypointLeftImage, keypointRightImage;
 	
-	Ptr<SURF> featureDetector = SURF::create();
-	featureDetector->setHessianThreshold(300);
-	
-	//IMAGE L AND R AREN'T CORRECT YET !
-	featureDetector->detectAndCompute(imageL, Mat(), keypointLeftImage, descriptorLeftImage);
-	featureDetector->detectAndCompute(imageR, Mat(), keypointRightImage, descriptorRightImage);
-	
-	FlannBasedMatcher matcher;
-	vector<DMatch> matches;
-	matcher.match(descriptorLeftImage, descriptorRightImage, matches);
-	
-	double max_dist = 0;
-	double min_dist = 100;
-	double dist = 0;
-	
-	for(int i = 0; i < descriptorLeftImage.rows; i++)
+	for(int i = 0; i < detections_L.size(); i++)
 	{
-		dist = matches[i].distance;
+		Mat vehicleAreaLeft = imageL(detections_L[i]);
 		
-		if(dist < min_dist)
+		for(int j = 0; j < detections_R.size(); j++)
 		{
-			min_dist = dist;
-		}
-		if(dist > max_dist)
-		{
-			max_dist = dist;
-		}
-	}
-	
-	vector<DMatch> good_matches;
-	for(int i = 0; i < descriptorLeftImage.rows; i++)
-	{
-		if(matches[i].distance <= max(2 * min_dist, 0.02))
-		{
-			good_matches.push_back(matches[i]);
-		}
-	}
+			Mat vehicleAreaRight = imageR(detections_R[j]);
+			
+			//Inst. detector
+			Ptr<SURF> featureDetector = SURF::create();
+			featureDetector->setHessianThreshold(minHessian);
+			
+			//Declare vars
+			vector<KeyPoint> keypointLeftImage, keypointRightImage;
+			Mat descriptorLeftImage, descriptorRightImage;
+			
+			featureDetector->detectAndCompute(vehicleAreaLeft, Mat(), keypointLeftImage, descriptorLeftImage);
+			featureDetector->detectAndCompute(vehicleAreaRight, Mat(), keypointRightImage, descriptorRightImage);
+			
+			//Declare FLANN matcher
+			FlannBasedMatcher matcher;
+			vector<DMatch> matches; //save results to 'matches'
+			matcher.match(descriptorLeftImage, descriptorRightImage, matches);
 
+			double max_dist = 0;
+			double min_dist = 100;
+			double dist = 0;
+			
+			for(int i = 0; i < descriptorLeftImage.rows; i++)
+			{
+				dist = matches[i].distance;
+				
+				if(dist < min_dist)
+				{
+					min_dist = dist;
+				}
+				if(dist > max_dist)
+				{
+					max_dist = dist;
+				}
+			}
+			
+			vector<DMatch> good_matches;
+			for(int i = 0; i < descriptorLeftImage.rows; i++)
+			{
+				if(matches[i].distance <= max(2 * min_dist, 0.02))
+				{
+					good_matches.push_back(matches[i]);
+				}
+			}
+			
+			if(good_matches.size() >= 5)
+			{
+				//not sure if this is the right way...
+			}
+					
+		}
+				
+	}
 }
 
 float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<double> &foundWeights_L, vector<Rect> &detections_R, vector<double> &foundWeights_R)
@@ -469,6 +488,23 @@ Point getPoints(Mat &image, vector<Rect> &detections, vector<double> &foundWeigh
 	return point0;
 }
 
+//reduce the number of detected rect by filtering out lower weights rect
+vector<Rect> HOGConfidenceFilter(vector<Rect> &detections, vector<double> &foundWeights)
+{
+	cout << "Detection count before conf filter: " << detections.size() << endl;
+	double confidence;
+	vector<Rect> filtered_detections;
+	for(size_t i = 0; i < detections.size(); i++)
+	{
+		confidence = foundWeights[i] * foundWeights[i];
+		if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
+		{			
+			filtered_detections.push_back(detections[i]);
+		} 
+	}
+	cout << "Detection count after conf filter: " << filtered_detections.size() << endl;
+	return filtered_detections;
+}
 
 void CheckAndDraw(Mat &image, vector<Rect> &detections, vector<double> &foundWeights)
 {
