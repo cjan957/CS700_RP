@@ -61,11 +61,24 @@ using namespace cv::xfeatures2d;
 
 #define LOOP 0
 
+long long inst_count;
+int inst_fd;
+
+struct CorrespondingPoint{
+	
+	Point leftPoint;
+	Point rightPoint;
+} tempPoints;
+
+float disparityMap(Mat imageL, Mat imageR, Point pointLeft, Point pointRight, int index);
+
+vector<CorrespondingPoint> points;
+
 vector<float> get_svm_detector(const Ptr<SVM> &svm);
 void CheckAndDraw(Mat &image, vector<Rect> &detections, vector<double> &foundWeights);
 Point getPoints(Mat &image, vector<Rect> &detections, vector<double> &foundWeights);
 
-float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<double> &foundWeights_L, vector<Rect> &detections_R, vector<double> &foundWeights_R);
+float disparityMap(Mat imageL, Mat imageR, vector<CorrespondingPoint> points);
 
 void SURFMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>&detections_R);
 

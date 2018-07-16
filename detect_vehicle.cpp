@@ -1,17 +1,4 @@
 #include "detect_vehicle.hpp"
-//#include "CorrespondingPoint.hpp"
-
-
-long long inst_count;
-int inst_fd;
-
-struct CorrespondingPoint{
-	
-	Point leftPoint;
-	Point rightPoint;
-} tempPoints;
-
-vector<CorrespondingPoint> points;
 
 int main()
 {	 
@@ -63,7 +50,7 @@ int main()
 	Point pointLeft;
 	Point pointRight;
 	String dist_str;
-
+	
 
 #if SEQUENCE_SET	//sequence of images (video)
 		
@@ -152,37 +139,44 @@ int main()
 		// HOGConfidenceFilter
 		filteredDetections_L = HOGConfidenceFilter(detections, foundWeights);
 		filteredDetections_R = HOGConfidenceFilter(detections_2, foundWeights_2);
-		
+		//NOTE : foundWeights are no longer valid from this line
 		
 		SURFMatcher(ROI_L, ROI_R, filteredDetections_L, filteredDetections_R);
 		
-		
-
 		//--------------------DISPARITY---------------------------
 		disparity = Mat(grayL.size().height, grayL.size().width, CV_16S);
-	
+		
 		sbm->setUniquenessRatio(15);
 		sbm->setTextureThreshold(0.0002);
 		sbm->compute(grayL, grayR, disparity);
-	
+		
 		normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
-	
+		
 		imshow("Disparity Map - FULL", disp8);
 		
-		dist = disparityMap(ROI_L, ROI_R, detections, foundWeights, detections_2, foundWeights_2);
-		
 		stringstream stream;
-		stream << fixed << setprecision(2) << dist;
-		string s = stream.str();
-		dist_str = "Distance: " + s + " m";
-	
-		pointLeft = getPoints(ROI_L, detections, foundWeights);
-		pointRight = getPoints(ROI_R, detections_2, foundWeights_2);
-	
-		putText(image, dist_str, pointLeft, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
-		putText(image_2, dist_str, pointRight, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
+		string s;
+		
+		for (int z = 0; z < points.size() ; z++)
+		{
+			
+			pointLeft = points.at(z).leftPoint;
+			pointRight = points.at(z).rightPoint;
+			
+			dist = disparityMap(ROI_L, ROI_R, pointLeft, pointRight, z);
+			cout << "DIST IS : " << dist << endl;
+			
+			stream << fixed << setprecision(2) << dist;
+			
+			s = stream.str();
+			dist_str = "Distance: " + s + " m";
+		
+			putText(image, dist_str, pointLeft, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
+			putText(image_2, dist_str, pointRight, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
+		}
 		
 		//-----------------------------------------------------------------
+		
 		CheckAndDraw(image, detections, foundWeights);
 		CheckAndDraw(image_2, detections_2, foundWeights_2);
 		
@@ -190,6 +184,10 @@ int main()
 		imshow("R Vehicle Detection 2 (Sequence)", image_2);
 		
 		cout << "Image : " << i << endl;
+	
+		// Resets the points vector
+		points.clear();
+	
 		
 		#if LOOP
 			// Loop back the video
@@ -254,6 +252,10 @@ int main()
 
 	hog.detectMultiScale(blurred, detections, foundWeights);
 	hog.detectMultiScale(blurred_2, detections_2, foundWeights_2);
+	
+	//add SURF stuff here?
+	
+	//-------------------------------------------------------//
 			
 	dist = disparityMap(blurred, blurred_2, detections, foundWeights, detections_2, foundWeights_2);
 		
@@ -343,15 +345,18 @@ void SURFMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>
 				}
 			}
 			
-			if(good_matches.size() >= 10)
+			if(good_matches.size() >= 5)
 			{
 				
 				tempPoints.leftPoint = (Point(detections_L[i].x, detections_L[i].y));
 				tempPoints.rightPoint = (Point(detections_R[j].x, detections_R[j].y));
 				
+				cout << "LEFT POINTS: " << tempPoints.leftPoint << endl;
+				cout << "RIGHT POINTS: " << tempPoints.rightPoint << endl;
+
 				points.push_back(tempPoints);
 				
-				//not sure if this is the right way.. 
+				
 				imshow("SURF Matched L", vehicleAreaLeft);
 				imshow("SURF Matched R", vehicleAreaRight);
 			}
@@ -359,7 +364,7 @@ void SURFMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>
 	}
 }
 
-float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<double> &foundWeights_L, vector<Rect> &detections_R, vector<double> &foundWeights_R)
+float disparityMap(Mat imageL, Mat imageR, Point pointLeft, Point pointRight, int index)
 {
 
 	const double BASELINE = -(-3.745166) / 6.471884; // Distance between the two cameras
@@ -371,64 +376,38 @@ float disparityMap(Mat imageL, Mat imageR, vector<Rect> &detections_L, vector<do
 	Mat disparity, disp8;	
 	Mat ROI_disp_L, ROI_disp_R;	
 
-	Point pointLeft;
-	Point pointRight;
-	
 	Rect roi_L, roi_R;
-
-	double confidence;	
-	
-	// Left Image
-	for(size_t i = 0; i < detections_L.size(); i++)
-	{
-		confidence = foundWeights_L[i] * foundWeights_L[i];
-		if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
-		{
-			pointLeft = Point(detections_L[i].x, detections_L[i].y);
-		}
-	}
-	
-	// Right Image
-	for(size_t i = 0; i < detections_R.size(); i++)
-	{
-		confidence = foundWeights_R[i] * foundWeights_R[i];
-		if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
-		{
-			pointRight = Point(detections_R[i].x, detections_R[i].y);
-		}
-	}
-	
-	
-	if ((pointLeft.x != 0) && (pointRight.x != 0)) 
-	{
 			
-		roi_L = Rect(pointLeft.x -5 ,pointLeft.y,105,105);
-		ROI_disp_L = Mat(imageL, roi_L);
+	roi_L = Rect(pointLeft.x, pointLeft.y,105,105);
+	ROI_disp_L = Mat(imageL, roi_L);
 	
-		roi_R = Rect(pointRight.x - 5,pointLeft.y,105,105);
-		ROI_disp_R = Mat(imageR, roi_R);
+	roi_R = Rect(pointRight.x, pointLeft.y,105,105);
+	ROI_disp_R = Mat(imageR, roi_R);
 	
-		imshow("LEFT IMAGE", ROI_disp_L);
-		imshow("RIGHT IMAGE", ROI_disp_R);
 	
-		disparity = Mat(ROI_disp_L.size().height, ROI_disp_L.size().width, CV_16S);
+	String leftImg = "LEFT IMAGE_" + to_string(index);
+	String rightImg = "RIGHT IMAGE_" + to_string(index);
 	
-		sbm_crop->setUniquenessRatio(15);
-		sbm_crop->setTextureThreshold(0.0002);
-		sbm_crop->compute(ROI_disp_L, ROI_disp_R, disparity);
+	imshow(leftImg, ROI_disp_L);
+	imshow(rightImg, ROI_disp_R);
 	
-		normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
+	disparity = Mat(ROI_disp_L.size().height, ROI_disp_L.size().width, CV_16S);
 	
-		imshow("DISPARITY", disp8);
+	sbm_crop->setUniquenessRatio(15);
+	sbm_crop->setTextureThreshold(0.0002);
+	sbm_crop->compute(ROI_disp_L, ROI_disp_R, disparity);
 	
-		cout << "pixel value: " << (int)disp8.at<unsigned char>(60, 60) << endl;
-		final_dist = (FOCAL*BASELINE) / (int)disp8.at<unsigned char>(60, 60);
-		cout << "distance : " << final_dist << " m" << endl;
-	}
+	normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
+	
+	String dispString = "DISPARITY_" + to_string(index);
+	
+	imshow(dispString, disp8);
+	
+	cout << "pixel value: " << (int)disp8.at<unsigned char>(60, 60) << endl;
+	final_dist = (FOCAL*BASELINE) / (int)disp8.at<unsigned char>(60, 60);
+	cout << "distance : " << final_dist << " m" << endl;
 	
 	return final_dist;
-	
-	
 	
 }
 
