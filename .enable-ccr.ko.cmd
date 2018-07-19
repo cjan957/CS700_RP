@@ -1,0 +1,1 @@
+cmd_/home/pi/Desktop/700/enable-ccr.ko := ld -EL -r  -T ./scripts/module-common.lds --build-id  -o /home/pi/Desktop/700/enable-ccr.ko /home/pi/Desktop/700/enable-ccr.o /home/pi/Desktop/700/enable-ccr.mod.o ;  true

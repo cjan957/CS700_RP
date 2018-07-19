@@ -142,7 +142,7 @@ int main()
 		//NOTE : foundWeights are no longer valid from this line
 		
 		SURFMatcher(ROI_L, ROI_R, filteredDetections_L, filteredDetections_R);
-		
+		cout << "DIST IS : X"<< endl;
 		//--------------------DISPARITY---------------------------
 		disparity = Mat(grayL.size().height, grayL.size().width, CV_16S);
 		
@@ -157,13 +157,15 @@ int main()
 		stringstream stream;
 		string s;
 		
+		
 		for (int z = 0; z < points.size() ; z++)
 		{
-			
+			cout << "DIST IS : A"<< endl;
 			pointLeft = points.at(z).leftPoint;
 			pointRight = points.at(z).rightPoint;
+			cout << "DIST IS : B"<< endl;
 			
-			dist = disparityMap(ROI_L, ROI_R, pointLeft, pointRight, z);
+			dist = disparityMap(grayL, grayR, pointLeft, pointRight, z);
 			cout << "DIST IS : " << dist << endl;
 			
 			stream << fixed << setprecision(2) << dist;
@@ -286,87 +288,119 @@ int main()
 
 void SURFMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>&detections_R)
 {
-	//the larger  = the few/important keypoints
-	//the smaller = the more/less-important keypoints
-	int minHessian = 300; //<- Adjustable
 	
-	
-	//left image
-	for(int i = 0; i < detections_L.size(); i++)
-	{
-		Mat vehicleAreaLeft = imageL(detections_L[i]);
+	try{
+		//the larger  = the few/important keypoints
+		//the smaller = the more/less-important keypoints
+		int minHessian = 300; //<- Adjustable
 		
 		
-		//right image
-		for(int j = 0; j < detections_R.size(); j++)
+		//left image
+		for(int i = 0; i < detections_L.size(); i++)
 		{
-			Mat vehicleAreaRight = imageR(detections_R[j]);
+			Mat vehicleAreaLeft = imageL(detections_L[i]);
 			
-			//Inst. detector
-			Ptr<SURF> featureDetector = SURF::create();
-			featureDetector->setHessianThreshold(minHessian);
 			
-			//Declare vars
-			vector<KeyPoint> keypointLeftImage, keypointRightImage;
-			Mat descriptorLeftImage, descriptorRightImage;
-			
-			featureDetector->detectAndCompute(vehicleAreaLeft, Mat(), keypointLeftImage, descriptorLeftImage);
-			featureDetector->detectAndCompute(vehicleAreaRight, Mat(), keypointRightImage, descriptorRightImage);
-			
-			//Declare FLANN matcher
-			FlannBasedMatcher matcher;
-			vector<DMatch> matches; //save results to 'matches'
-			matcher.match(descriptorLeftImage, descriptorRightImage, matches);
+			//right image
+			for(int j = 0; j < detections_R.size(); j++)
+			{
+				
+				Mat vehicleAreaRight = imageR(detections_R[j]);
+					
+				//Inst. detector
+				Ptr<SURF> featureDetector = SURF::create();
+				featureDetector->setHessianThreshold(minHessian);
+					
+				//Declare vars
+				vector<KeyPoint> keypointLeftImage, keypointRightImage;
+				Mat descriptorLeftImage, descriptorRightImage;
+					
+				featureDetector->detectAndCompute(vehicleAreaLeft, Mat(), keypointLeftImage, descriptorLeftImage);
+				featureDetector->detectAndCompute(vehicleAreaRight, Mat(), keypointRightImage, descriptorRightImage);
+					
+				//Declare FLANN matcher
+				FlannBasedMatcher matcher;
+				vector<DMatch> matches; //save results to 'matches'
+				
+				if(descriptorLeftImage.empty() || descriptorRightImage.empty())
+				{
+					continue;
+				}
+				
+				matcher.match(descriptorLeftImage, descriptorRightImage, matches);
 
-			double max_dist = 0;
-			double min_dist = 100;
-			double dist = 0;
-			
-			for(int i = 0; i < descriptorLeftImage.rows; i++)
-			{
-				dist = matches[i].distance;
+				double max_dist = 0;
+				double min_dist = 100;
+				double dist = 0;
 				
-				if(dist < min_dist)
-				{
-					min_dist = dist;
-				}
-				if(dist > max_dist)
-				{
-					max_dist = dist;
-				}
-			}
-			
-			vector<DMatch> good_matches;
-			for(int i = 0; i < descriptorLeftImage.rows; i++)
-			{
-				if(matches[i].distance <= max(2 * min_dist, 0.02))
-				{
-					good_matches.push_back(matches[i]);
-				}
-			}
-			
-			if(good_matches.size() >= 5)
-			{
 				
-				tempPoints.leftPoint = (Point(detections_L[i].x, detections_L[i].y));
-				tempPoints.rightPoint = (Point(detections_R[j].x, detections_R[j].y));
+				for(int i = 0; i < descriptorLeftImage.rows; i++)
+				{
+					dist = matches[i].distance;
+						
+					if(dist < min_dist)
+					{
+						min_dist = dist;
+					}
+					if(dist > max_dist)
+					{
+						max_dist = dist;
+					}
+				}
+			
 				
-				cout << "LEFT POINTS: " << tempPoints.leftPoint << endl;
-				cout << "RIGHT POINTS: " << tempPoints.rightPoint << endl;
+				
+				vector<DMatch> good_matches;
+				for(int i = 0; i < descriptorLeftImage.rows; i++)
+				{
+					if(matches[i].distance <= max(2 * min_dist, 0.02))
+					{
+						good_matches.push_back(matches[i]);
+					}
+				}
 
-				points.push_back(tempPoints);
 				
-				
-				imshow("SURF Matched L", vehicleAreaLeft);
-				imshow("SURF Matched R", vehicleAreaRight);
-			}
-		}	
+				if(good_matches.size() >= 5)
+				{
+					
+						tempPoints.leftPoint = (Point(detections_L[i].x, detections_L[i].y));
+						tempPoints.rightPoint = (Point(detections_R[j].x, detections_R[j].y));
+						
+						cout << "LEFT POINTS: " << tempPoints.leftPoint << endl;
+						cout << "RIGHT POINTS: " << tempPoints.rightPoint << endl;
+
+						points.push_back(tempPoints);
+						
+						
+						imshow("SURF Matched L", vehicleAreaLeft);
+						imshow("SURF Matched R", vehicleAreaRight);
+					
+				}
+			}	
+		}
+	}
+	catch(int e)
+	{
+		cout << "An exception occurred. Exception Nr. " << e << '\n';
 	}
 }
 
 float disparityMap(Mat imageL, Mat imageR, Point pointLeft, Point pointRight, int index)
 {
 
+	if (((pointLeft.x + 105) > imageL.size().width) || ((pointLeft.y + 105) > imageL.size().height))
+	{
+		cout << "LEFT TRUE" <<endl;
+		return 0;
+	}
+	
+	if (((pointRight.x + 105) > imageR.size().width) || ((pointRight.y + 105) > imageR.size().height))
+	{
+		cout << "RIGHT TRUE" <<endl;
+		return 0;
+	}
+	
+	
 	const double BASELINE = -(-3.745166) / 6.471884; // Distance between the two cameras
 	const double FOCAL = 647.1884; // Focal Length in pixels
 	float final_dist = 0;
@@ -377,7 +411,8 @@ float disparityMap(Mat imageL, Mat imageR, Point pointLeft, Point pointRight, in
 	Mat ROI_disp_L, ROI_disp_R;	
 
 	Rect roi_L, roi_R;
-			
+	
+	
 	roi_L = Rect(pointLeft.x, pointLeft.y,105,105);
 	ROI_disp_L = Mat(imageL, roi_L);
 	

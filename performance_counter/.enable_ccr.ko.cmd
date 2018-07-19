@@ -1,0 +1,1 @@
+cmd_/home/pi/Desktop/700/performance_counter/enable_ccr.ko := ld -EL -r  -T ./scripts/module-common.lds --build-id  -o /home/pi/Desktop/700/performance_counter/enable_ccr.ko /home/pi/Desktop/700/performance_counter/enable_ccr.o /home/pi/Desktop/700/performance_counter/enable_ccr.mod.o ;  true

@@ -48,14 +48,14 @@ using namespace std;
 using namespace cv::xfeatures2d;
 
 //#define YML_LOCATION "vehicle_detector_filter.yml"
-#define YML_LOCATION "/home/pi/Desktop/CS700_RP/Gammar0.5/vehicle_detector_filter.yml"
+#define YML_LOCATION "/home/pi/Desktop/CS700_RP/vehicle_detector_filter.yml"
 
 #define IMAGE_SIZE Size(64,64)
 
 #define SEQUENCE_SET 1 // 1 for sequence of images, 0 for a single shot (include L and R), specify below
 #define CAMERA_1_LOCATION "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left/I1_000163.png"
 #define CAMERA_2_LOCATION "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_right/I2_000163.png"
-#define START_AT_SEQUENCE 100 // <- specify STARTING SEQUENCE HERE
+#define START_AT_SEQUENCE 120 // <- specify STARTING SEQUENCE HERE
 #define CONFIDENCE_THRESHOLD 0.5 //specify confidence threshold for when bypass is 0
 #define BYPASS_CONFIDENCE_CHECK 0 //draw black boxes when not confidence
 
