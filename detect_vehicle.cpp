@@ -39,12 +39,17 @@ int main()
 	
 	vector<Rect> detections;
 	vector<double> foundWeights;
+	
 	vector<Rect> detections_2;
 	vector<double> foundWeights_2;
 	
+
 	//after HOGConfidenceFilter
 	vector<Rect> filteredDetections_L; 
 	vector<Rect> filteredDetections_R;
+	
+	vector<double> filteredFoundWeights_L;
+	vector<double> filteredFoundWeights_R;
 
 	float dist;
 	Point pointLeft;
@@ -82,8 +87,8 @@ int main()
 	string testFile = "";
 	string testFile_2 = "";
 	
-	string direct= "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left/";
-	string direct_right = "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_right/";
+	string direct= "/home/pi/Desktop/CS700_RP/stereo_dataset/left/";
+	string direct_right = "/home/pi/Desktop/CS700_RP/stereo_dataset/right/";
 
 	cout << "TIMER STARTED " << endl;
 	
@@ -127,7 +132,8 @@ int main()
 		GaussianBlur(grayR, blurred_2, Size(3,3), 0, 0, BORDER_DEFAULT);
 		
 		// Limit the ROI (Region of Interest)
-		Rect roi = Rect(0, 0, 392, blurred.size().height);
+		Rect roi = Rect(0, 0, blurred.size().width, blurred.size().height);
+		//Rect roi = Rect(0, 0, 392, blurred.size().height);
 		ROI_L = Mat(blurred, roi);
 		ROI_R = Mat(blurred_2, roi);
 		
@@ -135,10 +141,14 @@ int main()
 		hog.detectMultiScale(ROI_L, detections, foundWeights);
 		hog.detectMultiScale(ROI_R, detections_2, foundWeights_2);
 		
+		filteredDetections_L.clear();
+		filteredDetections_R.clear();
+		filteredFoundWeights_L.clear();
+		filteredFoundWeights_R.clear();
 		
 		// HOGConfidenceFilter
-		filteredDetections_L = HOGConfidenceFilter(detections, foundWeights);
-		filteredDetections_R = HOGConfidenceFilter(detections_2, foundWeights_2);
+		HOGConfidenceFilter(detections, foundWeights, filteredDetections_L, filteredFoundWeights_L);
+		HOGConfidenceFilter(detections_2, foundWeights_2, filteredDetections_R, filteredFoundWeights_R);
 		//NOTE : foundWeights are no longer valid from this line
 		
 		SURFMatcher(ROI_L, ROI_R, filteredDetections_L, filteredDetections_R);
@@ -179,8 +189,8 @@ int main()
 		
 		//-----------------------------------------------------------------
 		
-		CheckAndDraw(image, detections, foundWeights);
-		CheckAndDraw(image_2, detections_2, foundWeights_2);
+		CheckAndDraw(image, filteredDetections_L, filteredFoundWeights_L);
+		CheckAndDraw(image_2, filteredDetections_R, filteredFoundWeights_R);
 		
 		imshow("L Vehicle Detection (Sequence)", image);
 		imshow("R Vehicle Detection 2 (Sequence)", image_2);
@@ -420,8 +430,8 @@ float disparityMap(Mat imageL, Mat imageR, Point pointLeft, Point pointRight, in
 	ROI_disp_R = Mat(imageR, roi_R);
 	
 	
-	String leftImg = "LEFT IMAGE_" + to_string(index);
-	String rightImg = "RIGHT IMAGE_" + to_string(index);
+	String leftImg = "LEFT IMAGE"; //_" + to_string(index);
+	String rightImg = "RIGHT IMAGE";//_" + to_string(index);
 	
 	imshow(leftImg, ROI_disp_L);
 	imshow(rightImg, ROI_disp_R);
@@ -434,7 +444,7 @@ float disparityMap(Mat imageL, Mat imageR, Point pointLeft, Point pointRight, in
 	
 	normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
 	
-	String dispString = "DISPARITY_" + to_string(index);
+	String dispString = "DISPARITY"; //_" + to_string(index);
 	
 	imshow(dispString, disp8);
 	
@@ -469,21 +479,22 @@ Point getPoints(Mat &image, vector<Rect> &detections, vector<double> &foundWeigh
 }
 
 //reduce the number of detected rect by filtering out lower weights rect
-vector<Rect> HOGConfidenceFilter(vector<Rect> &detections, vector<double> &foundWeights)
+void HOGConfidenceFilter(vector<Rect> &detections, vector<double> &foundWeights, vector<Rect> &new_detections, vector<double> &new_foundWeights)
 {
 	cout << "Detection count before conf filter: " << detections.size() << endl;
 	double confidence;
-	vector<Rect> filtered_detections;
+
 	for(size_t i = 0; i < detections.size(); i++)
 	{
 		confidence = foundWeights[i] * foundWeights[i];
 		if((confidence > CONFIDENCE_THRESHOLD) || BYPASS_CONFIDENCE_CHECK)
 		{			
-			filtered_detections.push_back(detections[i]);
+			new_detections.push_back(detections[i]);
+			new_foundWeights.push_back(foundWeights[i]);
 		} 
 	}
-	cout << "Detection count after conf filter: " << filtered_detections.size() << endl;
-	return filtered_detections;
+	cout << "Detection count after conf filter: " << new_detections.size() << endl;
+	
 }
 
 void CheckAndDraw(Mat &image, vector<Rect> &detections, vector<double> &foundWeights)

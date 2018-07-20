@@ -56,7 +56,7 @@ using namespace cv::xfeatures2d;
 #define CAMERA_1_LOCATION "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left/I1_000163.png"
 #define CAMERA_2_LOCATION "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_right/I2_000163.png"
 #define START_AT_SEQUENCE 120 // <- specify STARTING SEQUENCE HERE
-#define CONFIDENCE_THRESHOLD 0.5 //specify confidence threshold for when bypass is 0
+#define CONFIDENCE_THRESHOLD 0.8 //specify confidence threshold for when bypass is 0
 #define BYPASS_CONFIDENCE_CHECK 0 //draw black boxes when not confidence
 
 #define LOOP 0
@@ -84,7 +84,10 @@ void SURFMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>
 
 vector<Rect> HOGConfidenceFilter(vector<Rect> &detections, vector<double> &foundWeights);
 
+void HOGConfidenceFilter(vector<Rect> &detections, vector<double> &foundWeights, vector<Rect> &new_detections, vector<double> &new_foundWeights);
+
+
 static void setup_counters(void);
 static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid, 
-	int cpu, int group_fd, unsigned long flags);
+int cpu, int group_fd, unsigned long flags);
 
