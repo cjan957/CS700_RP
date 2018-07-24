@@ -2,8 +2,8 @@
 
 int main()
 {	 
-	
-	//setNumThreads(0);
+	// Uncomment to make it run on a single core
+	setNumThreads(0);
 	
 	cout << setprecision(2) << fixed;
 	
@@ -33,7 +33,7 @@ int main()
 	Mat disparity, disp8;
 	Mat grayL;
 	Mat grayR;
-	Ptr<StereoBM> sbm = StereoBM::create(64, 21);
+	Ptr<StereoBM> sbm = StereoBM::create(64, 31);
 	
 	Mat ROI_disp_L, ROI_disp_R;	
 	
@@ -63,7 +63,7 @@ int main()
 	
 	DIR *dir;
 	struct dirent *ent;
-	if ((dir = opendir ("/home/pi/Desktop/CS700_RP/stereo_dataset/left")) != NULL) {
+	if ((dir = opendir ("/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left")) != NULL) {
 	/* print all the files and directories within directory */
 		while ((ent = readdir (dir)) != NULL) {
 		fileCount++;
@@ -87,8 +87,8 @@ int main()
 	string testFile = "";
 	string testFile_2 = "";
 	
-	string direct= "/home/pi/Desktop/CS700_RP/stereo_dataset/left/";
-	string direct_right = "/home/pi/Desktop/CS700_RP/stereo_dataset/right/";
+	string direct= "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left/";
+	string direct_right = "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_right/";
 
 	cout << "TIMER STARTED " << endl;
 	
@@ -152,7 +152,7 @@ int main()
 		//NOTE : foundWeights are no longer valid from this line
 		
 		SURFMatcher(ROI_L, ROI_R, filteredDetections_L, filteredDetections_R);
-		cout << "DIST IS : X"<< endl;
+		
 		//--------------------DISPARITY---------------------------
 		disparity = Mat(grayL.size().height, grayL.size().width, CV_16S);
 		
@@ -170,11 +170,10 @@ int main()
 		
 		for (int z = 0; z < points.size() ; z++)
 		{
-			cout << "DIST IS : A"<< endl;
+
 			pointLeft = points.at(z).leftPoint;
 			pointRight = points.at(z).rightPoint;
-			cout << "DIST IS : B"<< endl;
-			
+				
 			dist = disparityMap(grayL, grayR, pointLeft, pointRight, z);
 			cout << "DIST IS : " << dist << endl;
 			
@@ -302,7 +301,7 @@ void SURFMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>
 	try{
 		//the larger  = the few/important keypoints
 		//the smaller = the more/less-important keypoints
-		int minHessian = 300; //<- Adjustable
+		int minHessian = 550; //<- Adjustable
 		
 		
 		//left image
@@ -318,8 +317,8 @@ void SURFMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>
 				Mat vehicleAreaRight = imageR(detections_R[j]);
 					
 				//Inst. detector
-				Ptr<SURF> featureDetector = SURF::create();
-				featureDetector->setHessianThreshold(minHessian);
+				Ptr<SIFT> featureDetector = SIFT::create();
+				//featureDetector->setHessianThreshold(minHessian);
 					
 				//Declare vars
 				vector<KeyPoint> keypointLeftImage, keypointRightImage;
@@ -373,8 +372,8 @@ void SURFMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>
 				if(good_matches.size() >= 5)
 				{
 					
-						tempPoints.leftPoint = (Point(detections_L[i].x, detections_L[i].y));
-						tempPoints.rightPoint = (Point(detections_R[j].x, detections_R[j].y));
+						tempPoints.leftPoint = (Point(detections_L[i].x, detections_L[i].y + 105));
+						tempPoints.rightPoint = (Point(detections_R[j].x, detections_R[j].y + 105));
 						
 						cout << "LEFT POINTS: " << tempPoints.leftPoint << endl;
 						cout << "RIGHT POINTS: " << tempPoints.rightPoint << endl;
@@ -398,13 +397,13 @@ void SURFMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>
 float disparityMap(Mat imageL, Mat imageR, Point pointLeft, Point pointRight, int index)
 {
 
-	if (((pointLeft.x + 105) > imageL.size().width) || ((pointLeft.y + 105) > imageL.size().height))
+	if (((pointLeft.x + 105) > imageL.size().width) || ((pointLeft.y) > imageL.size().height))
 	{
 		cout << "LEFT TRUE" <<endl;
 		return 0;
 	}
 	
-	if (((pointRight.x + 105) > imageR.size().width) || ((pointRight.y + 105) > imageR.size().height))
+	if (((pointRight.x + 105) > imageR.size().width) || ((pointRight.y) > imageR.size().height))
 	{
 		cout << "RIGHT TRUE" <<endl;
 		return 0;
@@ -415,7 +414,7 @@ float disparityMap(Mat imageL, Mat imageR, Point pointLeft, Point pointRight, in
 	const double FOCAL = 647.1884; // Focal Length in pixels
 	float final_dist = 0;
 	
-	Ptr<StereoBM> sbm_crop = StereoBM::create(16, 7);
+	Ptr<StereoBM> sbm_crop = StereoBM::create(16, 17);
 	
 	Mat disparity, disp8;	
 	Mat ROI_disp_L, ROI_disp_R;	
@@ -423,10 +422,10 @@ float disparityMap(Mat imageL, Mat imageR, Point pointLeft, Point pointRight, in
 	Rect roi_L, roi_R;
 	
 	
-	roi_L = Rect(pointLeft.x, pointLeft.y,105,105);
+	roi_L = Rect(pointLeft.x, pointLeft.y - 105,105,105);
 	ROI_disp_L = Mat(imageL, roi_L);
 	
-	roi_R = Rect(pointRight.x, pointLeft.y,105,105);
+	roi_R = Rect(pointRight.x, pointLeft.y - 105,105,105);
 	ROI_disp_R = Mat(imageR, roi_R);
 	
 	
