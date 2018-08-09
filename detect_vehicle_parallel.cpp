@@ -14,7 +14,9 @@
 #include <utility>
 
 #include <stdio.h>
+#include <string>
 #include <iostream>
+#include <thread>
 
 #include <sys/types.h>
 #include <dirent.h>
@@ -113,30 +115,56 @@ static void stop_counters(void);
 static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid, 
 int cpu, int group_fd, unsigned long flags);
 
+Mat GrabLeftImage(string &name, HOGDescriptor &hog, vector<Rect> &detections_L, vector<double> &weights_L)
+{
+	Mat image = imread(L_CAMERA_SRC_DIR + name);
+	cvtColor(image, image, CV_BGR2GRAY);
+	GaussianBlur(image, image, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
+	Rect roi = Rect(0, 0, image.size().width, image.size().height);
+	image = Mat(image, roi);
+	
+	hog.detectMultiScale(image, detections_L, weights_L);
+	
+	return image;
+}
 
+Mat GrabRightImage(string &name, HOGDescriptor &hog, vector<Rect> &detections_R, vector<double> &weights_R)
+{
+	Mat image = imread(R_CAMERA_SRC_DIR + name);
+	cvtColor(image, image, CV_BGR2GRAY);
+	GaussianBlur(image, image, cv::GAUSSIAN_KERNEL_SIZE,0,0,BORDER_DEFAULT);
+	Rect roi = Rect(0, 0, image.size().width, image.size().height);
+	image = Mat(image, roi);
+	
+	hog.detectMultiScale(image, detections_R, weights_R);
+	
+	return image;
+}
 
 int main()
 {
+	setNumThreads(0); //force to 1 core
+	
+	
 	Ptr<SVM> svm;
 	svm = LoadTrainingFile();
 	if(!svm)
 	{
-		//loading failed
 		return 0;
 	}
-		
-	//Prepare HOG Descriptor to detect vehicles
-	HOGDescriptor hog;
-	SetupHOG(hog, svm);
 	
-	//Prepare OpenCV variables to work on images
+	HOGDescriptor hog_L;
+	HOGDescriptor hog_R;
+	SetupHOG(hog_L, svm);
+	SetupHOG(hog_R, svm);
+	
 	Mat image_L, image_R;
 	Mat original_image_L, original_image_R;
 	Mat ROI_L, ROI_R;
 	Mat ROI_disp_L, ROI_disp_R;
 	Mat disparity, disp8;
 	Mat grayL, grayR;
-
+	
 	//StereoBM
 	Ptr<StereoBM> sbm; 
 	sbm = StereoBM::create(STEREO_DISPARITY_SEARCH_RANGE, STEREO_BLOCK_SIZE);
@@ -147,7 +175,7 @@ int main()
 	vector<double> weights_L, weights_R;
 	
 	vector<Rect> filteredDetections_L, filteredDetections_R;
-	vector<double> filteredWeights_L, filteredWeights_R;
+	vector<double> filteredWeights_L, filteredWeights_R;	
 	
 	float dist;
 	String dist_str;
@@ -158,33 +186,16 @@ int main()
 	
 	setup_counters();
 	
-	for (int i = IMG_STARTING_SEQUENCE; i < fileCount; i++)
+	for(int i = IMG_STARTING_SEQUENCE; i < fileCount; i++)
 	{
 		String fileName_L, fileName_R;
 		FileNameDetermine(i, fileName_L, fileName_R);
 		
-		image_L = imread(L_CAMERA_SRC_DIR + fileName_L);
-		image_R = imread(R_CAMERA_SRC_DIR + fileName_R);
+		thread imageL_t(GrabLeftImage, fileName_L, hog_L, detections_L, weights_L);
+		thread imageR_t(GrabRightImage, fileName_R, hog_R, detections_R, weights_R);
 		
-		// Grayscale the image
-		cvtColor(image_L, grayL, CV_BGR2GRAY);
-		cvtColor(image_R, grayR, CV_BGR2GRAY);
-		
-		original_image_L = image_L;
-		original_image_R = image_R;
-		
-		PreProcessing(image_L, image_R);
-		
-		//crop the image by ROI
-		//Rect roi = Rect(0,0, ROI_X, ROI_Y);
-		Rect roi = Rect(0, 0, image_L.size().width, image_L.size().height);
-		
-		image_L = Mat(image_L, roi);
-		image_R = Mat(image_R, roi);
-		
-		
-		hog.detectMultiScale(image_L, detections_L, weights_L);
-		hog.detectMultiScale(image_R, detections_R, weights_R);
+		imageL_t.join();
+		imageR_t.join();
 		
 		filteredDetections_L.clear();
 		filteredDetections_R.clear();
@@ -258,10 +269,12 @@ int main()
 		{ 
 			return 1;
 		}
-			
 	}
-		
 }
+
+
+
+
 
 void PreProcessing(Mat &imageL, Mat &imageR)
 {

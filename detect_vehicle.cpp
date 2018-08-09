@@ -1,68 +1,309 @@
-#include "detect_vehicle.hpp"
+#include <opencv2/opencv.hpp>
+#include <opencv2/ml/ml.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/ml.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/videoio.hpp>
+#include "opencv2/features2d.hpp"
+#include "opencv2/xfeatures2d.hpp"
+#include <opencv2/calib3d.hpp>
+
+#include <string.h>
+#include <string>
+#include <utility>
+
+#include <stdio.h>
+#include <iostream>
+
+#include <sys/types.h>
+#include <dirent.h>
+
+#include <typeinfo>
+
+#include <iomanip>
+#include <sstream>
+
+#include <linux/perf_event.h>
+#include <linux/hw_breakpoint.h>
+
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/types.h>
+#include <sys/ioctl.h>
+#include <asm/unistd.h>
+
+
+using namespace std;
+using namespace cv;
+using namespace cv::ml;
+using namespace cv::xfeatures2d;
+
+//Location of files
+#define YML_LOCATION "/home/pi/Desktop/CS700_RP/vehicle_detector_filter.yml"
+#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left/"
+#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_right/"
+
+
+//HOG configs
+#define HOG_IMAGE_SIZE Size(64,64)
+#define HOG_BLOCK_SIZE Size(16,16)
+#define HOG_CELL_SIZE Size(8,8)
+
+//STEREO configs
+// cv::StereoBM::create(X,Y)
+#define STEREO_DISPARITY_SEARCH_RANGE 64
+#define STEREO_BLOCK_SIZE 31
+
+//SBM & Disparity
+#define UNIQUERATIO 15
+#define TEXTURETHRESHOLD 0.0002
+
+//Preprocessing configs
+#define GAUSSIAN_KERNEL_SIZE Size(3,3)
+
+//Starting image sequence
+#define IMG_STARTING_SEQUENCE 120
+
+//Settings
+#define CONFIDENCE_THRESHOLD 0.5
+#define BYPASS_CONFIDENCE_CHECK 0
+
+//ROI, cropping x and y
+#define ROI_X 
+#define ROI_Y
+
+//Looping and Debugging
+#define LOOP_IMAGES 0
+#define PRESS_NEXT 0
+
+struct CorrespondingPoint
+{
+	Point leftPoint;
+	Point rightPoint;
+}tempPoints;
+
+
+//variables
+long long inst_count;
+int inst_fd;
+vector<CorrespondingPoint> points;
+
+//functions declarations
+Point getPoints(Mat &image, vector<Rect> &detections, vector<double> &foundWeights);
+vector<float> get_svm_detector(const Ptr<SVM> &svm);
+vector<Rect> HOGConfidenceFilter(vector<Rect> &detections, vector<double> &foundWeights);
+
+Ptr<SVM> LoadTrainingFile();
+int FileCounter();
+void SetupHOG(HOGDescriptor &hog, Ptr<SVM> svm);
+
+void PreProcessing(Mat &imageL, Mat &imageR);
+void FileNameDetermine(int order, String &fileName_L, String &fileName_R);
+
+float disparityMap(Mat imageL, Mat imageR, Point pointLeft, Point pointRight, int index);
+float disparityMap(Mat imageL, Mat imageR, vector<CorrespondingPoint> points);
+
+void PointMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>&detections_R);
+void CheckAndDraw(Mat &image, vector<Rect> &detections, vector<double> &foundWeights);
+void HOGConfidenceFilter(vector<Rect> &detections, vector<double> &foundWeights, vector<Rect> &new_detections, vector<double> &new_foundWeights);
+
+static void setup_counters(void);
+static void stop_counters(void);
+static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid, 
+int cpu, int group_fd, unsigned long flags);
+
+
 
 int main()
-{	 
-	// Uncomment to make it run on a single core
-	//setNumThreads(0);
-	
-	cout << setprecision(2) << fixed;
-	
-	clog << "Loading the Training file.. Please wait.. " << endl;
-	Ptr<SVM> svm = StatModel::load<SVM>(YML_LOCATION);
-	clog << "Training file loaded!" << endl;
-	
-	vector<float> hog_detector = get_svm_detector(svm);
+{
+	Ptr<SVM> svm;
+	svm = LoadTrainingFile();
+	if(!svm)
+	{
+		//loading failed
+		return 0;
+	}
 		
+	//Prepare HOG Descriptor to detect vehicles
 	HOGDescriptor hog;
-	hog.winSize = IMAGE_SIZE;
-	hog.blockSize = Size(16,16);
-	hog.cellSize = Size(8,8);
+	SetupHOG(hog, svm);
 	
-	hog.setSVMDetector(hog_detector);
-	
-	Mat image;
-	Mat image_2;
-	Mat blurred;
-	Mat blurred_2;
-	Mat original;
-	Mat original_2;
-	
-	Mat ROI_L;
-	Mat ROI_R;
-	
+	//Prepare OpenCV variables to work on images
+	Mat image_L, image_R;
+	Mat original_image_L, original_image_R;
+	Mat ROI_L, ROI_R;
+	Mat ROI_disp_L, ROI_disp_R;
 	Mat disparity, disp8;
-	Mat grayL;
-	Mat grayR;
-	Ptr<StereoBM> sbm = StereoBM::create(64, 31);
-	
-	Mat ROI_disp_L, ROI_disp_R;	
-	
-	vector<Rect> detections;
-	vector<double> foundWeights;
-	
-	vector<Rect> detections_2;
-	vector<double> foundWeights_2;
-	
+	Mat grayL, grayR;
 
-	//after HOGConfidenceFilter
-	vector<Rect> filteredDetections_L; 
-	vector<Rect> filteredDetections_R;
+	//StereoBM
+	Ptr<StereoBM> sbm; 
+	sbm = StereoBM::create(STEREO_DISPARITY_SEARCH_RANGE, STEREO_BLOCK_SIZE);
+	sbm->setUniquenessRatio(UNIQUERATIO);
+	sbm->setTextureThreshold(TEXTURETHRESHOLD);
 	
-	vector<double> filteredFoundWeights_L;
-	vector<double> filteredFoundWeights_R;
-
+	vector<Rect> detections_L, detections_R;
+	vector<double> weights_L, weights_R;
+	
+	vector<Rect> filteredDetections_L, filteredDetections_R;
+	vector<double> filteredWeights_L, filteredWeights_R;
+	
 	float dist;
+	String dist_str;
 	Point pointLeft;
 	Point pointRight;
-	String dist_str;
+	
+	int fileCount = FileCounter();
+	
+	setup_counters();
+	
+	for (int i = IMG_STARTING_SEQUENCE; i < fileCount; i++)
+	{
+		String fileName_L, fileName_R;
+		FileNameDetermine(i, fileName_L, fileName_R);
+		
+		image_L = imread(L_CAMERA_SRC_DIR + fileName_L);
+		image_R = imread(R_CAMERA_SRC_DIR + fileName_R);
+		
+		// Grayscale the image
+		cvtColor(image_L, grayL, CV_BGR2GRAY);
+		cvtColor(image_R, grayR, CV_BGR2GRAY);
+		
+		original_image_L = image_L;
+		original_image_R = image_R;
+		
+		PreProcessing(image_L, image_R);
+		
+		//crop the image by ROI
+		//Rect roi = Rect(0,0, ROI_X, ROI_Y);
+		Rect roi = Rect(0, 0, image_L.size().width, image_L.size().height);
+		
+		image_L = Mat(image_L, roi);
+		image_R = Mat(image_R, roi);
+		
+		
+		hog.detectMultiScale(image_L, detections_L, weights_L);
+		hog.detectMultiScale(image_R, detections_R, weights_R);
+		
+		filteredDetections_L.clear();
+		filteredDetections_R.clear();
+		filteredWeights_L.clear();
+		filteredWeights_R.clear();
+		
+		HOGConfidenceFilter(detections_L, weights_L, filteredDetections_L, filteredWeights_L);
+		HOGConfidenceFilter(detections_R, weights_R, filteredDetections_R, filteredWeights_R);
+		
+		PointMatcher(image_L, image_R, filteredDetections_L, filteredDetections_R);
+		
+		// Disparity Map		
+		disparity = Mat(grayL.size().height, grayR.size().width, CV_16S);
+		
+		sbm->setUniquenessRatio(15);
+		sbm->setTextureThreshold(0.0002);
+		sbm->compute(grayL, grayR, disparity);
+		
+		normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
+		
+		imshow("Disparity Map - FULL", disp8);
+		
+		stringstream stream;
+		string s;
+		
+		for (int z = 0; z < points.size() ; z++) 
+		{
+
+			pointLeft = points.at(z).leftPoint;
+			pointRight = points.at(z).rightPoint;
+				
+			dist = disparityMap(grayL, grayR, pointLeft, pointRight, z);
+			cout << "DIST IS : " << dist << endl;
+			
+			stream << fixed << setprecision(2) << dist;
+			
+			s = stream.str();
+			dist_str = "Distance: " + s + " m";
+		
+			putText(original_image_L, dist_str, pointLeft, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
+			putText(original_image_R, dist_str, pointRight, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
+		}
+		
+		//-----------------------------------------------------------------
+		
+		CheckAndDraw(original_image_L, filteredDetections_L, filteredWeights_L);
+		CheckAndDraw(original_image_R, filteredDetections_R, filteredWeights_R);
+		
+		imshow("L Vehicle Detection (Sequence)", original_image_L);
+		imshow("R Vehicle Detection 2 (Sequence)", original_image_R);
+		
+		// Resets the points vector
+		points.clear();
+		
+#if LOOP
+		// Loop back the video
+		if(i == fileCount - 1)
+		{
+			i = 0;
+		}
+#endif	
+		
+#if PRESS_NEXT
+		if (waitKey(999999) == 37)
+		{
+			continue;
+		}
+#endif
+		
+		if(waitKey(30) == 27) //escape
+		{ 
+			return 1;
+		}
+			
+	}
+		
+}
+
+void PreProcessing(Mat &imageL, Mat &imageR)
+{
+	cvtColor(imageL, imageL, CV_BGR2GRAY);
+	cvtColor(imageR, imageR, CV_BGR2GRAY);
+	
+	GaussianBlur(imageL, imageL, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
+	GaussianBlur(imageR, imageR, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
+}
+
+void FileNameDetermine(int order, String &fileName_L, String &fileName_R)
+{
+	//File Prefix
+	String FILE_PREFIX_L = "I1_000";
+	String FILE_PREFIX_R = "I2_000";
 	
 
-#if SEQUENCE_SET	//sequence of images (video)
-		
-	int fileCount;
-	
+	if (order < 10)
+	{		
+		fileName_L = FILE_PREFIX_L + "00" + to_string(order) + ".png";
+		fileName_R = FILE_PREFIX_R + "00" + to_string(order) + ".png";
+	}
+	else if ((order >= 10) && (order < 100)) 
+	{	
+		fileName_L = FILE_PREFIX_L + "0" + to_string(order) + ".png";
+		fileName_R = FILE_PREFIX_R + "0" + to_string(order) + ".png";			
+	} 
+	else 
+	{		
+		fileName_L = FILE_PREFIX_L + to_string(order) + ".png";	
+		fileName_R = FILE_PREFIX_R + to_string(order) + ".png";			
+	}
+}
+
+
+int FileCounter()
+{
 	DIR *dir;
 	struct dirent *ent;
+	
+	int fileCount;
+	
 	if ((dir = opendir ("/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left")) != NULL) {
 	/* print all the files and directories within directory */
 		while ((ent = readdir (dir)) != NULL) {
@@ -77,225 +318,27 @@ int main()
 	
 	fileCount -= 2;
 	
-	cout << "LENGTH IS " << fileCount<< endl;
+	return fileCount;
 	
-	int i = 0;
-	
-	string openFile = "I1_000";
-	string openSecondFile = "I2_000";
-	
-	string testFile = "";
-	string testFile_2 = "";
-	
-	string direct= "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left/";
-	string direct_right = "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_right/";
-
-	cout << "TIMER STARTED " << endl;
-	
-	setup_counters();
-	
-	//change starting image by changing i?
-	for (i = START_AT_SEQUENCE; i < fileCount; i++) 
-	{
-				
-		if (i < 10)
-		{
-			
-			testFile = openFile + "00" + to_string(i) + ".png";
-			testFile_2 = openSecondFile + "00" + to_string(i) + ".png";
-		}
-		else if ((i >= 10) && (i < 100)) 
-		{
-			
-			testFile = openFile + "0" + to_string(i) + ".png";
-			testFile_2 = openSecondFile + "0" + to_string(i) + ".png";
-			
-		} 
-		else 
-		{
-			
-			testFile = openFile + to_string(i) + ".png";	
-			testFile_2 = openSecondFile + to_string(i) + ".png";	
-			
-		}
-				
-		image = imread(direct + testFile);
-		image_2 = imread(direct_right + testFile_2);
-	
-		
-		// Grayscale the image
-		cvtColor(image, grayL, CV_BGR2GRAY);
-		cvtColor(image_2, grayR, CV_BGR2GRAY);
-		
-		// Remove the noise
-		GaussianBlur(grayL, blurred, Size(3,3), 0, 0, BORDER_DEFAULT);
-		GaussianBlur(grayR, blurred_2, Size(3,3), 0, 0, BORDER_DEFAULT);
-		
-		// Limit the ROI (Region of Interest)
-		Rect roi = Rect(0, 0, blurred.size().width, blurred.size().height);
-		//Rect roi = Rect(0, 0, 392, blurred.size().height);
-		ROI_L = Mat(blurred, roi);
-		ROI_R = Mat(blurred_2, roi);
-		
-		
-		hog.detectMultiScale(ROI_L, detections, foundWeights);
-		hog.detectMultiScale(ROI_R, detections_2, foundWeights_2);
-		
-		filteredDetections_L.clear();
-		filteredDetections_R.clear();
-		filteredFoundWeights_L.clear();
-		filteredFoundWeights_R.clear();
-		
-		// HOGConfidenceFilter
-		HOGConfidenceFilter(detections, foundWeights, filteredDetections_L, filteredFoundWeights_L);
-		HOGConfidenceFilter(detections_2, foundWeights_2, filteredDetections_R, filteredFoundWeights_R);
-		//NOTE : foundWeights are no longer valid from this line
-		
-		SURFMatcher(ROI_L, ROI_R, filteredDetections_L, filteredDetections_R);
-		
-		//--------------------DISPARITY---------------------------
-		disparity = Mat(grayL.size().height, grayL.size().width, CV_16S);
-		
-		sbm->setUniquenessRatio(15);
-		sbm->setTextureThreshold(0.0002);
-		sbm->compute(grayL, grayR, disparity);
-		
-		normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
-		
-		imshow("Disparity Map - FULL", disp8);
-		
-		stringstream stream;
-		string s;
-		
-		
-		for (int z = 0; z < points.size() ; z++)
-		{
-
-			pointLeft = points.at(z).leftPoint;
-			pointRight = points.at(z).rightPoint;
-				
-			dist = disparityMap(grayL, grayR, pointLeft, pointRight, z);
-			cout << "DIST IS : " << dist << endl;
-			
-			stream << fixed << setprecision(2) << dist;
-			
-			s = stream.str();
-			dist_str = "Distance: " + s + " m";
-		
-			putText(image, dist_str, pointLeft, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
-			putText(image_2, dist_str, pointRight, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
-		}
-		
-		//-----------------------------------------------------------------
-		
-		CheckAndDraw(image, filteredDetections_L, filteredFoundWeights_L);
-		CheckAndDraw(image_2, filteredDetections_R, filteredFoundWeights_R);
-		
-		imshow("L Vehicle Detection (Sequence)", image);
-		imshow("R Vehicle Detection 2 (Sequence)", image_2);
-		
-		cout << "Image : " << i << endl;
-	
-		// Resets the points vector
-		points.clear();
-	
-		
-		#if LOOP
-			// Loop back the video
-			if(i == fileCount - 1)
-			{
-				i = 0;
-			}
-		#endif	
-		
-		//~ if (waitKey(999999) == 37)
-		//~ {
-			//~ continue;
-		//~ }
-		
-		if(waitKey(30) == 27) //escape
-		{ 
-			return 1;
-		}
-				
-	}
-	
-	ioctl(inst_fd, PERF_EVENT_IOC_DISABLE, 0);
-    read(inst_fd, &inst_count, sizeof(long long));
-
-    printf("Used %lld cycles\n", inst_count);
-
-    close(inst_fd);	
-	
-	
-	
-#else //STATIC IMAGES
-	
-	const double BASELINE = -(-3.745166) / 6.471884; // Distance between the two cameras
-	const double FOCAL = 647.1884; // Focal Length in pixels
-	
-	image = imread(CAMERA_1_LOCATION);
-	image_2 = imread(CAMERA_2_LOCATION);
-		
-	// ------------ DISPARITY -------------
-	// Grayscale the image
-	cvtColor(image, grayL, CV_BGR2GRAY);
-	cvtColor(image_2, grayR, CV_BGR2GRAY);
-	
-	// Remove the noise
-	GaussianBlur(grayL, blurred, Size(3,3), 0, 0, BORDER_DEFAULT);
-	GaussianBlur(grayR, blurred_2, Size(3,3), 0, 0, BORDER_DEFAULT);
-	
-	disparity = Mat(blurred.size().height, blurred.size().width, CV_16S);
-	
-	sbm->setUniquenessRatio(15);
-	sbm->setTextureThreshold(0.0002);
-	sbm->compute(grayL, grayR, disparity);
-	
-	normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
-	
-	imshow("Disparity Map", disp8);
-	
-	cout << "pixel value (original): " << (int)disp8.at<unsigned char>(110,327) << endl;
-	cout << "distance : " << (FOCAL*BASELINE) / (int)disp8.at<unsigned char>(110,327) << " m" << endl;
-	
-	//-----------------------------------------------------//
-
-	hog.detectMultiScale(blurred, detections, foundWeights);
-	hog.detectMultiScale(blurred_2, detections_2, foundWeights_2);
-	
-	//add SURF stuff here?
-	
-	//-------------------------------------------------------//
-			
-	dist = disparityMap(blurred, blurred_2, detections, foundWeights, detections_2, foundWeights_2);
-		
-	stringstream stream;
-	stream << fixed << setprecision(2) << dist;
-	string s = stream.str();
-	dist_str = "Distance: " + s + " m";
-	
-	pointLeft = getPoints(blurred, detections, foundWeights);
-	pointRight = getPoints(blurred_2, detections_2, foundWeights_2);
-	
-	putText(image, dist_str, pointLeft, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
-	putText(image_2, dist_str, pointRight, FONT_HERSHEY_PLAIN,1, Scalar(255,255,255),1,CV_AA);
-
-	CheckAndDraw(image, detections, foundWeights);
-	CheckAndDraw(image_2, detections_2, foundWeights_2);
-	
-	imshow("L Vehicle Detection (Static)", image);
-	imshow("R Vehicle Detection 2 (Static)", image_2);
-		
-	if(waitKey(0) == 27) //escape
-	{ 
-		return 1;
-	}	
-
-#endif
 }
 
-void SURFMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>&detections_R)
+void SetupHOG(HOGDescriptor &hog, Ptr<SVM> svm)
+{
+	hog.winSize = HOG_IMAGE_SIZE;
+	hog.blockSize = HOG_BLOCK_SIZE;
+	hog.cellSize = HOG_CELL_SIZE;
+	hog.setSVMDetector(get_svm_detector(svm));
+}
+
+Ptr<SVM> LoadTrainingFile()
+{
+	clog << "Loading the Training file.. Please wait.. " << endl;
+	Ptr<SVM> svm = StatModel::load<SVM>(YML_LOCATION);
+	return svm;
+}
+
+
+void PointMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect>&detections_R)
 {
 	
 	try{
@@ -543,6 +586,11 @@ vector<float> get_svm_detector(const Ptr<SVM> &svm)
 	return hog_detector;
 }
 
+
+
+
+
+// Performance Counters
 static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
                 int cpu, int group_fd, unsigned long flags)
 {
@@ -577,7 +625,18 @@ static void setup_counters(void)
     ioctl(inst_fd, PERF_EVENT_IOC_ENABLE, 0);
 	
 }
+
+static void stop_counters(void)
+{
+	
+	ioctl(inst_fd, PERF_EVENT_IOC_DISABLE, 0);
+    read(inst_fd, &inst_count, sizeof(long long));
+
+    printf("Used %lld cycles\n", inst_count);
+
+    close(inst_fd);	
+    
+}
 	
 	
-	
-	
+
