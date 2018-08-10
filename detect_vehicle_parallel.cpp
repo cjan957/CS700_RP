@@ -115,30 +115,32 @@ static void stop_counters(void);
 static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid, 
 int cpu, int group_fd, unsigned long flags);
 
-Mat GrabLeftImage(string &name, HOGDescriptor &hog, vector<Rect> &detections_L, vector<double> &weights_L)
+Mat image_L, image_R;
+Mat original_image_L, original_image_R;
+Mat grayL, grayR;
+
+void GrabLeftImage(string name)
 {
 	Mat image = imread(L_CAMERA_SRC_DIR + name);
+	original_image_L = image;
 	cvtColor(image, image, CV_BGR2GRAY);
+	grayL = image;
 	GaussianBlur(image, image, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
-	Rect roi = Rect(0, 0, image.size().width, image.size().height);
-	image = Mat(image, roi);
-	
-	hog.detectMultiScale(image, detections_L, weights_L);
-	
-	return image;
+	//Rect roi = Rect(0, 0, image.size().width, image.size().height);
+	//image = Mat(image, roi);
+	image_L = image;
 }
 
-Mat GrabRightImage(string &name, HOGDescriptor &hog, vector<Rect> &detections_R, vector<double> &weights_R)
+void GrabRightImage(string name)
 {
 	Mat image = imread(R_CAMERA_SRC_DIR + name);
+	original_image_R = image;
 	cvtColor(image, image, CV_BGR2GRAY);
+	grayR = image;
 	GaussianBlur(image, image, cv::GAUSSIAN_KERNEL_SIZE,0,0,BORDER_DEFAULT);
-	Rect roi = Rect(0, 0, image.size().width, image.size().height);
-	image = Mat(image, roi);
-	
-	hog.detectMultiScale(image, detections_R, weights_R);
-	
-	return image;
+	//Rect roi = Rect(0, 0, image.size().width, image.size().height);
+	//image = Mat(image, roi);
+	image_R = image;
 }
 
 int main()
@@ -153,17 +155,12 @@ int main()
 		return 0;
 	}
 	
-	HOGDescriptor hog_L;
-	HOGDescriptor hog_R;
-	SetupHOG(hog_L, svm);
-	SetupHOG(hog_R, svm);
-	
-	Mat image_L, image_R;
-	Mat original_image_L, original_image_R;
+	HOGDescriptor hog;
+	SetupHOG(hog,svm);
+
 	Mat ROI_L, ROI_R;
 	Mat ROI_disp_L, ROI_disp_R;
 	Mat disparity, disp8;
-	Mat grayL, grayR;
 	
 	//StereoBM
 	Ptr<StereoBM> sbm; 
@@ -191,11 +188,21 @@ int main()
 		String fileName_L, fileName_R;
 		FileNameDetermine(i, fileName_L, fileName_R);
 		
-		thread imageL_t(GrabLeftImage, fileName_L, hog_L, detections_L, weights_L);
-		thread imageR_t(GrabRightImage, fileName_R, hog_R, detections_R, weights_R);
+		thread imageL_t(GrabLeftImage, fileName_L);
+		thread imageR_t(GrabRightImage, fileName_R);
 		
 		imageL_t.join();
 		imageR_t.join();
+		
+		//Mat image_L = imread(L_CAMERA_SRC_DIR + fileName_L);
+		//Mat image_R = imread(R_CAMERA_SRC_DIR + fileName_R);
+		Rect roi = Rect(0, 0, image_L.size().width, image_L.size().height);
+		
+		image_L = Mat(image_L, roi);
+		image_R = Mat(image_R, roi);
+		
+		hog.detectMultiScale(image_L, detections_L, weights_L);
+		hog.detectMultiScale(image_R, detections_R, weights_R);
 		
 		filteredDetections_L.clear();
 		filteredDetections_R.clear();
