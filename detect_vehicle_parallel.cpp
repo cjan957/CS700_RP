@@ -119,6 +119,15 @@ Mat image_L, image_R;
 Mat original_image_L, original_image_R;
 Mat grayL, grayR;
 
+vector<Rect> detections_L, detections_R;
+vector<double> weights_L, weights_R;
+	
+vector<Rect> filteredDetections_L, filteredDetections_R;
+vector<double> filteredWeights_L, filteredWeights_R;
+
+HOGDescriptor hog_L;
+HOGDescriptor hog_R;
+
 void GrabLeftImage(string name)
 {
 	Mat image = imread(L_CAMERA_SRC_DIR + name);
@@ -126,9 +135,15 @@ void GrabLeftImage(string name)
 	cvtColor(image, image, CV_BGR2GRAY);
 	grayL = image;
 	GaussianBlur(image, image, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
-	//Rect roi = Rect(0, 0, image.size().width, image.size().height);
-	//image = Mat(image, roi);
+	Rect roi = Rect(0, 0, image.size().width, image.size().height);
+	image = Mat(image, roi);
 	image_L = image;
+	
+	hog_L.detectMultiScale(image, detections_L, weights_L);
+	
+	filteredDetections_L.clear();
+	filteredWeights_L.clear();
+	HOGConfidenceFilter(detections_L, weights_L, filteredDetections_L, filteredWeights_L);
 }
 
 void GrabRightImage(string name)
@@ -138,15 +153,20 @@ void GrabRightImage(string name)
 	cvtColor(image, image, CV_BGR2GRAY);
 	grayR = image;
 	GaussianBlur(image, image, cv::GAUSSIAN_KERNEL_SIZE,0,0,BORDER_DEFAULT);
-	//Rect roi = Rect(0, 0, image.size().width, image.size().height);
-	//image = Mat(image, roi);
+	Rect roi = Rect(0, 0, image.size().width, image.size().height);
+	image = Mat(image, roi);
 	image_R = image;
+	
+	hog_R.detectMultiScale(image, detections_R, weights_R);
+	
+	filteredDetections_R.clear();
+	filteredWeights_R.clear();
+	HOGConfidenceFilter(detections_R, weights_R, filteredDetections_R, filteredWeights_R);
 }
 
 int main()
 {
-	setNumThreads(0); //force to 1 core
-	
+	//setNumThreads(0); //force to 1 core
 	
 	Ptr<SVM> svm;
 	svm = LoadTrainingFile();
@@ -155,8 +175,9 @@ int main()
 		return 0;
 	}
 	
-	HOGDescriptor hog;
-	SetupHOG(hog,svm);
+	//HOGDescriptor hog; move to global
+	SetupHOG(hog_L,svm);
+	SetupHOG(hog_R,svm);
 
 	Mat ROI_L, ROI_R;
 	Mat ROI_disp_L, ROI_disp_R;
@@ -167,12 +188,6 @@ int main()
 	sbm = StereoBM::create(STEREO_DISPARITY_SEARCH_RANGE, STEREO_BLOCK_SIZE);
 	sbm->setUniquenessRatio(UNIQUERATIO);
 	sbm->setTextureThreshold(TEXTURETHRESHOLD);
-	
-	vector<Rect> detections_L, detections_R;
-	vector<double> weights_L, weights_R;
-	
-	vector<Rect> filteredDetections_L, filteredDetections_R;
-	vector<double> filteredWeights_L, filteredWeights_R;	
 	
 	float dist;
 	String dist_str;
@@ -192,25 +207,7 @@ int main()
 		thread imageR_t(GrabRightImage, fileName_R);
 		
 		imageL_t.join();
-		imageR_t.join();
-		
-		//Mat image_L = imread(L_CAMERA_SRC_DIR + fileName_L);
-		//Mat image_R = imread(R_CAMERA_SRC_DIR + fileName_R);
-		Rect roi = Rect(0, 0, image_L.size().width, image_L.size().height);
-		
-		image_L = Mat(image_L, roi);
-		image_R = Mat(image_R, roi);
-		
-		hog.detectMultiScale(image_L, detections_L, weights_L);
-		hog.detectMultiScale(image_R, detections_R, weights_R);
-		
-		filteredDetections_L.clear();
-		filteredDetections_R.clear();
-		filteredWeights_L.clear();
-		filteredWeights_R.clear();
-		
-		HOGConfidenceFilter(detections_L, weights_L, filteredDetections_L, filteredWeights_L);
-		HOGConfidenceFilter(detections_R, weights_R, filteredDetections_R, filteredWeights_R);
+		imageR_t.join();	
 		
 		PointMatcher(image_L, image_R, filteredDetections_L, filteredDetections_R);
 		
@@ -257,6 +254,7 @@ int main()
 		// Resets the points vector
 		points.clear();
 		
+		
 #if LOOP
 		// Loop back the video
 		if(i == fileCount - 1)
@@ -277,6 +275,7 @@ int main()
 			return 1;
 		}
 	}
+	stop_counters();
 }
 
 

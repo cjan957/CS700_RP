@@ -113,10 +113,13 @@ static void stop_counters(void);
 static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid, 
 int cpu, int group_fd, unsigned long flags);
 
-
+Mat grayL, grayR;
 
 int main()
 {
+	
+	//setNumThreads(0); //force to 1 core
+
 	Ptr<SVM> svm;
 	svm = LoadTrainingFile();
 	if(!svm)
@@ -135,7 +138,7 @@ int main()
 	Mat ROI_L, ROI_R;
 	Mat ROI_disp_L, ROI_disp_R;
 	Mat disparity, disp8;
-	Mat grayL, grayR;
+	
 
 	//StereoBM
 	Ptr<StereoBM> sbm; 
@@ -166,9 +169,6 @@ int main()
 		image_L = imread(L_CAMERA_SRC_DIR + fileName_L);
 		image_R = imread(R_CAMERA_SRC_DIR + fileName_R);
 		
-		// Grayscale the image
-		cvtColor(image_L, grayL, CV_BGR2GRAY);
-		cvtColor(image_R, grayR, CV_BGR2GRAY);
 		
 		original_image_L = image_L;
 		original_image_R = image_R;
@@ -238,7 +238,7 @@ int main()
 		
 		// Resets the points vector
 		points.clear();
-		
+				
 #if LOOP
 		// Loop back the video
 		if(i == fileCount - 1)
@@ -260,13 +260,20 @@ int main()
 		}
 			
 	}
+	
+	stop_counters();
+
 		
 }
 
 void PreProcessing(Mat &imageL, Mat &imageR)
 {
+	
 	cvtColor(imageL, imageL, CV_BGR2GRAY);
+	grayL = imageL;
 	cvtColor(imageR, imageR, CV_BGR2GRAY);
+	grayR = imageR;
+	
 	
 	GaussianBlur(imageL, imageL, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
 	GaussianBlur(imageR, imageR, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
