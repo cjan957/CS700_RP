@@ -10,12 +10,11 @@ static inline uint32_t ccnt_read (void)
  
 int main() {
   uint32_t t0 = ccnt_read();
-  uint32_t calc = 1*2;
-  //printf("test calc result: %d \n", calc);
+  //uint32_t calc = 1*20000000;
   uint32_t t1 = ccnt_read();       
   printf("Shoule be 1 cycle? : %u\n", t1-t0);
-  volatile uint64_t n = 100000000;
-  while(n > 0) n--;
-  t1 = ccnt_read();
-  printf("Cycles Diff : %u\n", t1-t0);
+  //volatile uint64_t n = 100000000;
+  //while(n > 0) n--;
+  //t1 = ccnt_read();
+  //printf("Cycles Diff : %u\n", t1-t0);
 }

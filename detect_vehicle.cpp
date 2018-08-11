@@ -63,7 +63,7 @@ using namespace cv::xfeatures2d;
 #define GAUSSIAN_KERNEL_SIZE Size(3,3)
 
 //Starting image sequence
-#define IMG_STARTING_SEQUENCE 120
+#define IMG_STARTING_SEQUENCE 140
 
 //Settings
 #define CONFIDENCE_THRESHOLD 0.5
@@ -118,7 +118,7 @@ Mat grayL, grayR;
 int main()
 {
 	
-	//setNumThreads(0); //force to 1 core
+	setNumThreads(0); //force to 1 core
 
 	Ptr<SVM> svm;
 	svm = LoadTrainingFile();
@@ -127,6 +127,9 @@ int main()
 		//loading failed
 		return 0;
 	}
+	
+	cout << "Press Enter to continue" << endl;
+	cin.get();
 		
 	//Prepare HOG Descriptor to detect vehicles
 	HOGDescriptor hog;
@@ -161,7 +164,7 @@ int main()
 	
 	setup_counters();
 	
-	for (int i = IMG_STARTING_SEQUENCE; i < fileCount; i++)
+	for (int i = IMG_STARTING_SEQUENCE; i < IMG_STARTING_SEQUENCE + 10; i++)
 	{
 		String fileName_L, fileName_R;
 		FileNameDetermine(i, fileName_L, fileName_R);

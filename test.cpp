@@ -17,8 +17,7 @@ perf_event_open(struct perf_event_attr *hw_event, pid_t pid,
     return ret;
 }
 
-int
-main(int argc, char **argv)
+int main(int argc, char **argv)
 {
     struct perf_event_attr pe;
     long long count;
@@ -27,7 +26,7 @@ main(int argc, char **argv)
     memset(&pe, 0, sizeof(struct perf_event_attr));
     pe.type = PERF_TYPE_HARDWARE;
     pe.size = sizeof(struct perf_event_attr);
-    pe.config = PERF_COUNT_HW_INSTRUCTIONS;
+    pe.config = PERF_COUNT_HW_CPU_CYCLES;
     pe.disabled = 1;
     pe.exclude_kernel = 1;
     pe.exclude_hv = 1;
