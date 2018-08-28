@@ -166,7 +166,7 @@ void GrabRightImage(string name)
 
 int main()
 {
-	setNumThreads(0); //force to 1 core
+	//setNumThreads(0); //force to 1 core
 	
 	Ptr<SVM> svm;
 	svm = LoadTrainingFile();
