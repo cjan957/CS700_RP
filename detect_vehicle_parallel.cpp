@@ -199,11 +199,15 @@ int main()
 	
 	int fileCount = FileCounter();
 	
-	setup_counters();
+	//setup_counters();
+	
+	String fileName_L, fileName_R;
+	
+	time_t start, end;
+	time(&start);
 	
 	for(int i = IMG_STARTING_SEQUENCE; i < IMG_STARTING_SEQUENCE + 10; i++)
 	{
-		String fileName_L, fileName_R;
 		FileNameDetermine(i, fileName_L, fileName_R);
 		
 		thread imageL_t(GrabLeftImage, fileName_L);
@@ -278,7 +282,10 @@ int main()
 			return 1;
 		}
 	}
-	stop_counters();
+	time(&end);
+	double seconds = difftime(end, start);
+	cout << "Time taken: " << seconds << " seconds" << endl;
+	//stop_counters();
 }
 
 

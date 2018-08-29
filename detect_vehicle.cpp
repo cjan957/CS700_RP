@@ -44,6 +44,7 @@ using namespace cv::xfeatures2d;
 #define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left/"
 #define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_right/"
 
+#define DEBUG 0
 
 //HOG configs
 #define HOG_IMAGE_SIZE Size(64,64)
@@ -118,7 +119,7 @@ Mat grayL, grayR;
 int main()
 {
 	
-	setNumThreads(0); //force to 1 core
+	//setNumThreads(0); //force to 1 core
 
 	Ptr<SVM> svm;
 	svm = LoadTrainingFile();
@@ -162,11 +163,18 @@ int main()
 	
 	int fileCount = FileCounter();
 	
-	setup_counters();
+	//setup_counters();
 	
-	for (int i = IMG_STARTING_SEQUENCE; i < IMG_STARTING_SEQUENCE + 10; i++)
+	String fileName_L, fileName_R;
+	
+	time_t start, end;
+	time(&start);
+	
+	
+	
+	for (int i = IMG_STARTING_SEQUENCE; i <= IMG_STARTING_SEQUENCE + 10; i++)
 	{
-		String fileName_L, fileName_R;
+		cout << i << endl;
 		FileNameDetermine(i, fileName_L, fileName_R);
 		
 		image_L = imread(L_CAMERA_SRC_DIR + fileName_L);
@@ -208,7 +216,9 @@ int main()
 		
 		normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
 		
+		#if DEBUG
 		imshow("Disparity Map - FULL", disp8);
+		#endif
 		
 		stringstream stream;
 		string s;
@@ -220,7 +230,9 @@ int main()
 			pointRight = points.at(z).rightPoint;
 				
 			dist = disparityMap(grayL, grayR, pointLeft, pointRight, z);
-			cout << "DIST IS : " << dist << endl;
+			#if DEBUG 
+				cout << "DIST IS : " << dist << endl; 
+			#endif
 			
 			stream << fixed << setprecision(2) << dist;
 			
@@ -235,6 +247,7 @@ int main()
 		
 		CheckAndDraw(original_image_L, filteredDetections_L, filteredWeights_L);
 		CheckAndDraw(original_image_R, filteredDetections_R, filteredWeights_R);
+		
 		
 		imshow("L Vehicle Detection (Sequence)", original_image_L);
 		imshow("R Vehicle Detection 2 (Sequence)", original_image_R);
@@ -264,9 +277,10 @@ int main()
 			
 	}
 	
-	stop_counters();
-
-		
+	time(&end);
+	double seconds = difftime(end, start);
+	cout << "Time taken: " << seconds << " seconds" << endl;
+	//stop_counters();	
 }
 
 void PreProcessing(Mat &imageL, Mat &imageR)
@@ -428,15 +442,17 @@ void PointMatcher(Mat imageL, Mat imageR, vector<Rect>&detections_L, vector<Rect
 						tempPoints.leftPoint = (Point(detections_L[i].x, detections_L[i].y + 105));
 						tempPoints.rightPoint = (Point(detections_R[j].x, detections_R[j].y + 105));
 						
+						#if DEBUG 
 						cout << "LEFT POINTS: " << tempPoints.leftPoint << endl;
 						cout << "RIGHT POINTS: " << tempPoints.rightPoint << endl;
+						#endif
 
 						points.push_back(tempPoints);
 						
-						
+						#if DEBUG 
 						imshow("SURF Matched L", vehicleAreaLeft);
 						imshow("SURF Matched R", vehicleAreaRight);
-					
+						#endif
 				}
 			}	
 		}
@@ -452,13 +468,17 @@ float disparityMap(Mat imageL, Mat imageR, Point pointLeft, Point pointRight, in
 
 	if (((pointLeft.x + 105) > imageL.size().width) || ((pointLeft.y) > imageL.size().height))
 	{
-		cout << "LEFT TRUE" <<endl;
+		#if DEBUG 
+			cout << "LEFT TRUE" <<endl;
+		#endif
 		return 0;
 	}
 	
 	if (((pointRight.x + 105) > imageR.size().width) || ((pointRight.y) > imageR.size().height))
 	{
-		cout << "RIGHT TRUE" <<endl;
+		#if DEBUG
+			cout << "RIGHT TRUE" <<endl;
+		#endif
 		return 0;
 	}
 	
@@ -485,8 +505,10 @@ float disparityMap(Mat imageL, Mat imageR, Point pointLeft, Point pointRight, in
 	String leftImg = "LEFT IMAGE"; //_" + to_string(index);
 	String rightImg = "RIGHT IMAGE";//_" + to_string(index);
 	
-	imshow(leftImg, ROI_disp_L);
-	imshow(rightImg, ROI_disp_R);
+	#if DEBUG 
+		imshow(leftImg, ROI_disp_L);
+		imshow(rightImg, ROI_disp_R);
+	#endif
 	
 	disparity = Mat(ROI_disp_L.size().height, ROI_disp_L.size().width, CV_16S);
 	
@@ -498,11 +520,17 @@ float disparityMap(Mat imageL, Mat imageR, Point pointLeft, Point pointRight, in
 	
 	String dispString = "DISPARITY"; //_" + to_string(index);
 	
-	imshow(dispString, disp8);
-	
-	cout << "pixel value: " << (int)disp8.at<unsigned char>(60, 60) << endl;
+	#if DEBUG 
+		imshow(dispString, disp8);
+	#endif
+	#if DEBUG 
+		cout << "pixel value: " << (int)disp8.at<unsigned char>(60, 60) << endl;
+	#endif
 	final_dist = (FOCAL*BASELINE) / (int)disp8.at<unsigned char>(60, 60);
-	cout << "distance : " << final_dist << " m" << endl;
+	#if DEBUG 
+		cout << "distance : " << final_dist << " m" << endl;
+	#endif
+	
 	
 	return final_dist;
 	
@@ -533,7 +561,9 @@ Point getPoints(Mat &image, vector<Rect> &detections, vector<double> &foundWeigh
 //reduce the number of detected rect by filtering out lower weights rect
 void HOGConfidenceFilter(vector<Rect> &detections, vector<double> &foundWeights, vector<Rect> &new_detections, vector<double> &new_foundWeights)
 {
+	#if DEBUG 
 	cout << "Detection count before conf filter: " << detections.size() << endl;
+	#endif 
 	double confidence;
 
 	for(size_t i = 0; i < detections.size(); i++)
@@ -545,8 +575,9 @@ void HOGConfidenceFilter(vector<Rect> &detections, vector<double> &foundWeights,
 			new_foundWeights.push_back(foundWeights[i]);
 		} 
 	}
-	cout << "Detection count after conf filter: " << new_detections.size() << endl;
-	
+	#if DEBUG
+		cout << "Detection count after conf filter: " << new_detections.size() << endl;
+	#endif
 }
 
 void CheckAndDraw(Mat &image, vector<Rect> &detections, vector<double> &foundWeights)
