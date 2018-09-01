@@ -26,8 +26,8 @@ using namespace cv::dnn;
 //Starting image sequence
 #define IMG_STARTING_SEQUENCE 140
 
-#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left/"
-#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_right/"
+#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/left/"
+#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/right/"
 
 // Initialize the parameters
 float confThreshold = 0.5; // Confidence threshold
@@ -104,12 +104,12 @@ int main()
 	while (getline(ifs, line)) classes.push_back(line);
 
 	// Give the configuration and weight files for the model
-	String modelConfiguration = "yolov2-tiny.cfg";
-	String modelWeights = "yolov2-tiny.weights";
+	String modelConfiguration = "yolov3-tiny.cfg";
+	String modelWeights = "yolov3-tiny.weights";
 
 	// Load the network
 	Net net = readNetFromDarknet(modelConfiguration, modelWeights);
-	net.setPreferableBackend(DNN_BACKEND_DEFAULT);
+	net.setPreferableBackend(DNN_BACKEND_OPENCV);
 	net.setPreferableTarget(DNN_TARGET_CPU);
 
 	// Create a window
@@ -133,7 +133,7 @@ int main()
 	String fileName_L, fileName_R;
 	Mat leftImg, rightImg;
 	
-	for (int i = IMG_STARTING_SEQUENCE; i < IMG_STARTING_SEQUENCE + 10; i++)
+	for (int i = IMG_STARTING_SEQUENCE; i <= IMG_STARTING_SEQUENCE + 10; i++)
 	{
 		FileNameDetermine(i, fileName_L, fileName_R);
 		
@@ -209,9 +209,13 @@ int main()
 		
 		cout << "last" << endl;
 
-		//waitKey(0);
+		if(waitKey(30) == 27) //escape
+		{ 
+			return 1;
+		}
+			
 	}
-	return 40;
+	return 0;
 } // main
 
 
