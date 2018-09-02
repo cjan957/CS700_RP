@@ -1,5 +1,5 @@
-echo Compiling...
-g++ $(pkg-config --libs --cflags opencv) -o detect_vehicle detect_vehicle.cpp
+echo Compiling singleDetection...
+g++ $(pkg-config --libs --cflags opencv) -o singleDetection singleDetection.cpp
 echo Done!
 
-./detect_vehicle
+./singleDetection

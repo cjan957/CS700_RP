@@ -44,7 +44,7 @@ using namespace cv::ml;
 using namespace cv::xfeatures2d;
 
 //Location of files
-#define YML_LOCATION "/home/pi/Desktop/CS700_RP/vehicle_detector_filter.yml"
+#define YML_LOCATION "/home/pi/Desktop/CS700_RP/vehicle_detector.yml"
 #define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/left/"
 #define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/right/"
 
@@ -65,13 +65,14 @@ using namespace cv::xfeatures2d;
 #define TEXTURETHRESHOLD 0.0002
 
 //Preprocessing configs
+#define USE_GAUSSIAN 0
 #define GAUSSIAN_KERNEL_SIZE Size(3,3)
 
 //Starting image sequence
 #define IMG_STARTING_SEQUENCE 140
 
 //Settings
-#define CONFIDENCE_THRESHOLD 0.5
+#define CONFIDENCE_THRESHOLD 0.6
 #define BYPASS_CONFIDENCE_CHECK 0
 
 //ROI, cropping x and y
@@ -165,7 +166,7 @@ int main()
 	time_t start, end;
 	time(&start);
 	
-	for (int i = IMG_STARTING_SEQUENCE; i <= IMG_STARTING_SEQUENCE + 10; i++)
+	for (int i = IMG_STARTING_SEQUENCE; i <= IMG_STARTING_SEQUENCE + 50; i++)
 	{
 		cout << i << endl;
 		FileNameDetermine(i, fileName_L, fileName_R);
@@ -241,9 +242,10 @@ void PreProcessing(Mat &imageL, Mat &imageR)
 	cvtColor(imageR, imageR, CV_BGR2GRAY);
 	grayR = imageR;
 	
-	
+	#if USE_GAUSSIAN
 	GaussianBlur(imageL, imageL, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
 	GaussianBlur(imageR, imageR, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
+	#endif
 }
 
 
@@ -446,7 +448,9 @@ string estimateDistance(Rect &detections)
 	const double FOCAL = 647.1884; // Focal Length in pixels
 		
 	int x = detections.x + (detections.size().width / 2);
-	int y = detections.y + (detections.size().height / 2);
+	
+	//add a quarter to prevent distance estimation on the windscreen
+	int y = detections.y + (detections.size().height / 2) + (detections.size().height / 4);
 	
 	int pixelValue = (int)depthMap.at<unsigned char>(y,x);
 	
