@@ -166,7 +166,7 @@ int main()
 	time_t start, end;
 	time(&start);
 	
-	for (int i = IMG_STARTING_SEQUENCE; i <= IMG_STARTING_SEQUENCE + 50; i++)
+	for (int i = IMG_STARTING_SEQUENCE; i < IMG_STARTING_SEQUENCE + 10; i++)
 	{
 		cout << i << endl;
 		FileNameDetermine(i, fileName_L, fileName_R);
