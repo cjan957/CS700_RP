@@ -166,6 +166,8 @@ int main()
 	time_t start, end;
 	time(&start);
 	
+	Mat resize_imageL, resize_imageR;
+	
 	for (int i = IMG_STARTING_SEQUENCE; i < IMG_STARTING_SEQUENCE + 10; i++)
 	{
 		cout << i << endl;
@@ -174,13 +176,17 @@ int main()
 		image_L = imread(L_CAMERA_SRC_DIR + fileName_L);
 		image_R = imread(R_CAMERA_SRC_DIR + fileName_R);
 		
-		//~ resize(image_L ,image_L ,Size(),0.5,0.5);
-		//~ resize(image_R ,image_R ,Size(),0.5,0.5);
-		
 		original_image_L = image_L;
 		original_image_R = image_R;
 		
 		PreProcessing(image_L, image_R);
+		
+		//resize image for HOG processing
+		resize(image_L, resize_imageL, Size(), 0.5, 0.5);
+		//resize(image_R, resize_imageR, Size(), 0.5, 0.5);
+		
+		//cout << "Size original: " << image_L.size() << endl;
+		//cout << "Size modified: "  << resize_imageL.size() << endl;
 		
 		//crop the image by ROI
 		//Rect roi = Rect(0,0, ROI_X, ROI_Y);
@@ -189,7 +195,7 @@ int main()
 		image_L = Mat(image_L, roi);
 		image_R = Mat(image_R, roi);
 		
-		hog.detectMultiScale(image_L, detections_L, weights_L);
+		hog.detectMultiScale(resize_imageL, detections_L, weights_L);
 		
 		filteredDetections_L.clear();
 		filteredWeights_L.clear();
@@ -351,10 +357,15 @@ void CheckAndDraw(Mat &image, vector<Rect> &detections, vector<double> &foundWei
 	{
 		
 		confidence = foundWeights[i] * foundWeights[i];
-		
 		confidence_colour = Scalar(0, confidence * 200, 0);
-		rectangle(image, detections[i], confidence_colour, image.cols / 400 + 1);
 		
+		detections[i].height *= 2;
+		detections[i].width *= 2;
+		detections[i].x *= 2;
+		detections[i].y *=2;
+		
+		
+		rectangle(image, detections[i], confidence_colour, image.cols / 400 + 1);
 		
 		cout << detections[i] << endl;
 		
