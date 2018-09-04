@@ -69,10 +69,11 @@ using namespace cv::xfeatures2d;
 #define GAUSSIAN_KERNEL_SIZE Size(3,3)
 
 //Starting image sequence
-#define IMG_STARTING_SEQUENCE 140
+#define IMG_STARTING_SEQUENCE 323
+#define IMG_STOPPING_SEQUENCE 400
 
 //Settings
-#define CONFIDENCE_THRESHOLD 0.6
+#define CONFIDENCE_THRESHOLD 0.4
 #define BYPASS_CONFIDENCE_CHECK 0
 
 //ROI, cropping x and y
@@ -168,7 +169,7 @@ int main()
 	
 	Mat resize_imageL, resize_imageR;
 	
-	for (int i = IMG_STARTING_SEQUENCE; i < IMG_STARTING_SEQUENCE + 10; i++)
+	for (int i = IMG_STARTING_SEQUENCE; i < IMG_STOPPING_SEQUENCE + 10; i++)
 	{
 		cout << i << endl;
 		FileNameDetermine(i, fileName_L, fileName_R);
@@ -210,8 +211,7 @@ int main()
 		CheckAndDraw(original_image_L, filteredDetections_L, filteredWeights_L);		
 		imshow("L Vehicle Detection (Sequence)", original_image_L);
 		
-		
-				
+					
 #if LOOP
 		// Loop back the video
 		if(i == fileCount - 1)
