@@ -68,12 +68,15 @@ using namespace cv::xfeatures2d;
 #define USE_GAUSSIAN 0
 #define GAUSSIAN_KERNEL_SIZE Size(3,3)
 
+
+#define SCALED 1
+
 //Starting image sequence
 #define IMG_STARTING_SEQUENCE 323
 #define IMG_STOPPING_SEQUENCE 400
 
 //Settings
-#define CONFIDENCE_THRESHOLD 0.4
+#define CONFIDENCE_THRESHOLD 0.5
 #define BYPASS_CONFIDENCE_CHECK 0
 
 //ROI, cropping x and y
@@ -196,10 +199,15 @@ int main()
 		image_L = Mat(image_L, roi);
 		image_R = Mat(image_R, roi);
 		
-		hog.detectMultiScale(resize_imageL, detections_L, weights_L);
-		
+		//change image_L to resize_imageL if needed
+		#if SCALED
+			hog.detectMultiScale(resize_imageL, detections_L, weights_L);
+		#else
+			hog.detectMultiScale(image_L, detections_L, weights_L);
+		#endif
 		filteredDetections_L.clear();
 		filteredWeights_L.clear();
+		
 		
 		HOGConfidenceFilter(detections_L, weights_L, filteredDetections_L, filteredWeights_L);		
 		depthMap = DepthMap(image_L, image_R);
@@ -359,11 +367,12 @@ void CheckAndDraw(Mat &image, vector<Rect> &detections, vector<double> &foundWei
 		confidence = foundWeights[i] * foundWeights[i];
 		confidence_colour = Scalar(0, confidence * 200, 0);
 		
-		detections[i].height *= 2;
-		detections[i].width *= 2;
-		detections[i].x *= 2;
-		detections[i].y *=2;
-		
+		#if SCALED 
+			detections[i].height *= 2;
+			detections[i].width *= 2;
+			detections[i].x *= 2;
+			detections[i].y *=2;
+		#endif 
 		
 		rectangle(image, detections[i], confidence_colour, image.cols / 400 + 1);
 		
