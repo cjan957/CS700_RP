@@ -44,9 +44,9 @@ using namespace cv::ml;
 using namespace cv::xfeatures2d;
 
 //Location of files
-#define YML_LOCATION "/home/pi/Desktop/CS700_RP/vehicle_detector.yml"
-#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/left/"
-#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/right/"
+#define YML_LOCATION "/home/pi/Desktop/CS700_RP/vehicle_detector_all.yml"
+#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/second/left/"
+#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/second/right/"
 
 #define DEBUG 0
 
@@ -68,15 +68,15 @@ using namespace cv::xfeatures2d;
 #define USE_GAUSSIAN 0
 #define GAUSSIAN_KERNEL_SIZE Size(3,3)
 
-
+// Set whether you want HOG to work on scaled image
 #define SCALED 1
 
 //Starting image sequence
-#define IMG_STARTING_SEQUENCE 323
-#define IMG_STOPPING_SEQUENCE 400
+#define IMG_STARTING_SEQUENCE 42
+#define IMG_STOPPING_SEQUENCE 100
 
 //Settings
-#define CONFIDENCE_THRESHOLD 0.5
+#define CONFIDENCE_THRESHOLD 0.6
 #define BYPASS_CONFIDENCE_CHECK 0
 
 //ROI, cropping x and y
@@ -172,7 +172,7 @@ int main()
 	
 	Mat resize_imageL, resize_imageR;
 	
-	for (int i = IMG_STARTING_SEQUENCE; i < IMG_STOPPING_SEQUENCE + 10; i++)
+	for (int i = IMG_STARTING_SEQUENCE; i < IMG_STOPPING_SEQUENCE; i++)
 	{
 		cout << i << endl;
 		FileNameDetermine(i, fileName_L, fileName_R);
@@ -201,16 +201,23 @@ int main()
 		
 		//change image_L to resize_imageL if needed
 		#if SCALED
-			hog.detectMultiScale(resize_imageL, detections_L, weights_L);
+			hog.detectMultiScale(resize_imageL, detections_L, weights_L, 0, Size(8,8), Size(0), 1.05, 2.0, false);
 		#else
-			hog.detectMultiScale(image_L, detections_L, weights_L);
+			hog.detectMultiScale(image_L, detections_L, weights_L, 0, Size(8,8), Size(0), 1.05, 2.0, false);
 		#endif
 		filteredDetections_L.clear();
 		filteredWeights_L.clear();
 		
 		
-		HOGConfidenceFilter(detections_L, weights_L, filteredDetections_L, filteredWeights_L);		
+		HOGConfidenceFilter(detections_L, weights_L, filteredDetections_L, filteredWeights_L);	
+		
+		
+		//cout << "Press Enter to start disparity map" << endl;
+		//cin.get();	
 		depthMap = DepthMap(image_L, image_R);
+		//cout << "Press Enter to end disparity map" << endl;
+		//cin.get();
+		
 		imshow("Depth Map", depthMap);
 			
 		//-----------------------------------------------------------------

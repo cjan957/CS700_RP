@@ -25,6 +25,7 @@ using namespace cv::dnn;
 
 //Starting image sequence
 #define IMG_STARTING_SEQUENCE 140
+#define IMG_STOPPING_SEQUENCE 200
 
 #define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/left/"
 #define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/right/"
@@ -133,7 +134,7 @@ int main()
 	String fileName_L, fileName_R;
 	Mat leftImg, rightImg;
 	
-	for (int i = IMG_STARTING_SEQUENCE; i <= IMG_STARTING_SEQUENCE + 10; i++)
+	for (int i = IMG_STARTING_SEQUENCE; i <= IMG_STOPPING_SEQUENCE; i++)
 	{
 		FileNameDetermine(i, fileName_L, fileName_R);
 		
@@ -142,7 +143,6 @@ int main()
 		leftImg = imread(L_CAMERA_SRC_DIR + fileName_L);
 		rightImg = imread(R_CAMERA_SRC_DIR + fileName_R);
 		
-		imshow("dsf", leftImg);
 		
 		cvtColor(leftImg, g1, COLOR_BGR2GRAY);
 		cvtColor(rightImg, g2, COLOR_BGR2GRAY);
