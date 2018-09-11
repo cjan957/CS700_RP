@@ -52,7 +52,7 @@ const double FOCAL = 721; // 645.24; //Karlsruhe : 647.1884; // Focal Length in 
 
 Mat projectionMatrix0;
 
-const string imageNumber = "000013";
+const string imageNumber = "000071";
 
 void getProjectionMatrix() {
 
@@ -74,12 +74,12 @@ void getProjectionMatrix() {
 			stringstream ss(textline);
 
 			while (ss >> buf) {
-				
+
 				tokens.push_back(buf);
-				tempMatrix.push_back(atof(buf.c_str()));				
+				tempMatrix.push_back(atof(buf.c_str()));
 			}
 
-			if (tokens[0] != "P0:") {
+			if (tokens[0] != "P2:") {
 				tokens.clear();
 				tempMatrix.clear();
 			}
@@ -88,7 +88,7 @@ void getProjectionMatrix() {
 				break;
 			}
 
-			 
+
 			// break;
 		}
 		myfile.close();
@@ -108,7 +108,7 @@ void getProjectionMatrix() {
 }
 
 void getAllDistances() {
-	
+
 	string textline;
 	int text;
 	string buf;
@@ -129,15 +129,16 @@ void getAllDistances() {
 			}
 
 			if (tokens[0] != "DontCare") {
-				
+
 				Mat coordinates = (cv::Mat_<double>(4, 1) << atof(tokens[10].c_str()), atof(tokens[11].c_str()), atof(tokens[12].c_str()), 1);
+				cout << "Coordinates " << coordinates << endl;
 				result = projectionMatrix0 * coordinates;
 				cout << tokens[0] << " distance: " << result.at<double>(2, 0) << " m" << endl;
 				// cout << textline << '\n';
 			}
-					
+
 			tokens.clear();
-		
+
 		}
 		myfile.close();
 	}
@@ -154,7 +155,7 @@ int main()
 {
 
 	getProjectionMatrix();
-	
+
 	// Get coordinates
 	getAllDistances();
 
@@ -181,6 +182,8 @@ int main()
 
 	Mat leftImg = imread("C:/Users/Josh/Documents/Uni/Part4-Project/Dataset/LEFT/" + imageNumber + ".png");
 	Mat rightImg = imread("C:/Users/Josh/Documents/Uni/Part4-Project/Dataset/RIGHT/" + imageNumber + ".png");
+
+	imshow("Original Image", leftImg);
 
 	cvtColor(leftImg, g1, COLOR_BGR2GRAY);
 	cvtColor(rightImg, g2, COLOR_BGR2GRAY);
@@ -335,10 +338,31 @@ string estimateDistance(int y, int x, Mat roi) {
 // Draw the predicted bounding box
 void drawPred(int classId, float conf, int left, int top, int right, int bottom, Mat& frame)
 {
+	if ((!classes[classId].compare("car")) | (!classes[classId].compare("truck "))) {
+		cout << classes[classId] << endl;
+		return;
+	}
+
+	if (left < 0) {
+		left = 0;
+	}
+
+	if (right > frame.size().width) {
+		right = frame.size().width;
+	}
+
+	if (top < 0) {
+		top = 0;
+	}
+
+	if (bottom > frame.size().height) {
+		bottom = frame.size().height;
+	}
+
 	//Draw a rectangle displaying the bounding box
 	rectangle(frame, Point(left, top), Point(right, bottom), Scalar(255, 178, 50), 3);
 
-	cout << "Image locations: " << left << "," << top << " Size: " << (right - left) << "," << (bottom - top) << endl;
+	// cout << "Image locations: " << left << "," << top << " Size: " << (right - left) << "," << (bottom - top) << endl;
 
 	Mat roi;
 
@@ -368,7 +392,7 @@ void drawPred(int classId, float conf, int left, int top, int right, int bottom,
 		CV_Assert(classId < (int)classes.size());
 		label = classes[classId] + ":" + label + " Distance: " + estimateDistance(y, x, roi);
 	}
-
+	
 	//Display the label at the top of the bounding box
 	int baseLine;
 	Size labelSize = getTextSize(label, FONT_HERSHEY_SIMPLEX, 0.5, 1, &baseLine);
