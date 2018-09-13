@@ -44,9 +44,9 @@ using namespace cv::ml;
 using namespace cv::xfeatures2d;
 
 //Location of files
-#define YML_LOCATION "/home/pi/Desktop/CS700_RP/vehicle_detector_all.yml"
-#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/second/left/"
-#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/second/right/"
+#define YML_LOCATION "/home/pi/Desktop/CS700_RP/vehicle_detector_filter.yml"
+#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/third/left/"
+#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/third/right/"
 
 #define DEBUG 0
 
@@ -69,14 +69,14 @@ using namespace cv::xfeatures2d;
 #define GAUSSIAN_KERNEL_SIZE Size(3,3)
 
 // Set whether you want HOG to work on scaled image
-#define SCALED 1
+#define SCALED 0
 
 //Starting image sequence
-#define IMG_STARTING_SEQUENCE 42
-#define IMG_STOPPING_SEQUENCE 100
+#define IMG_STARTING_SEQUENCE 60
+#define IMG_STOPPING_SEQUENCE 200
 
 //Settings
-#define CONFIDENCE_THRESHOLD 0.6
+#define CONFIDENCE_THRESHOLD 0.65
 #define BYPASS_CONFIDENCE_CHECK 0
 
 //ROI, cropping x and y
@@ -201,9 +201,10 @@ int main()
 		
 		//change image_L to resize_imageL if needed
 		#if SCALED
-			hog.detectMultiScale(resize_imageL, detections_L, weights_L, 0, Size(8,8), Size(0), 1.05, 2.0, false);
+			cout << "HI" << endl;
+			hog.detectMultiScale(resize_imageL, detections_L, weights_L, 0, Size(8,8), Size(), 1.05, 2.0, false);
 		#else
-			hog.detectMultiScale(image_L, detections_L, weights_L, 0, Size(8,8), Size(0), 1.05, 2.0, false);
+			hog.detectMultiScale(image_L, detections_L, weights_L, 0, Size(8,8), Size(), 1.05, 2.0, false);
 		#endif
 		filteredDetections_L.clear();
 		filteredWeights_L.clear();
@@ -375,8 +376,8 @@ void CheckAndDraw(Mat &image, vector<Rect> &detections, vector<double> &foundWei
 		confidence_colour = Scalar(0, confidence * 200, 0);
 		
 		#if SCALED 
-			detections[i].height *= 2;
-			detections[i].width *= 2;
+			detections[i].height *= 1.5;
+			detections[i].width *= 1.5;
 			detections[i].x *= 2;
 			detections[i].y *=2;
 		#endif 

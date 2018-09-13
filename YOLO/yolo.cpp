@@ -24,11 +24,11 @@ using namespace cv;
 using namespace cv::dnn;
 
 //Starting image sequence
-#define IMG_STARTING_SEQUENCE 140
+#define IMG_STARTING_SEQUENCE 65
 #define IMG_STOPPING_SEQUENCE 200
 
-#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/left/"
-#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/right/"
+#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/third/left/"
+#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/third/right/"
 
 // Initialize the parameters
 float confThreshold = 0.5; // Confidence threshold
