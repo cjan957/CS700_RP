@@ -1,3 +1,5 @@
-g++ $(pkg-config --libs --cflags opencv) -o ROI_disp ROI_disparity.cpp
+echo Compiling..
 
-./ROI_disp
+g++ $(pkg-config --libs --cflags opencv) -o disp_GT Disparity_GT.cpp
+
+./disp_GT

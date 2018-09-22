@@ -46,7 +46,7 @@ using namespace cv::xfeatures2d;
 //Location of files
 
 //1 for first, 0 for second dataset
-#define DATASET 0
+#define DATASET 1
 
 
 #define DEBUG 0
@@ -66,32 +66,32 @@ using namespace cv::xfeatures2d;
 #define TEXTURETHRESHOLD 0.0002
 
 //Preprocessing configs
-#define USE_GAUSSIAN 0
+#define USE_GAUSSIAN 1
 #define GAUSSIAN_KERNEL_SIZE Size(3,3)
 
 //Settings
 #define CONFIDENCE_THRESHOLD 0.5
-#define BYPASS_CONFIDENCE_CHECK 0
+#define BYPASS_CONFIDENCE_CHECK 1
 
 //ROI, cropping x and y
 #define ROI_X 
 #define ROI_Y
 
 //Looping and Debugging
-#define LOOP_IMAGES 0
+#define LOOP 1
 #define PRESS_NEXT 0
 
 #if DATASET
-	#define YML_LOCATION "/home/pi/Desktop/CS700_RP/Filters/vehicle_detector_all.yml"
-	#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/first/left/"
-	#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/first/right/"
-	#define IMG_STARTING_SEQUENCE 290
-	#define IMG_STOPPING_SEQUENCE 400
-	#define SCALED 1
+	#define YML_LOCATION "/home/pi/Desktop/CS700_RP/YML/vehicle_detector.yml"
+	#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/road/left/data/"
+	#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/road/right/data/"
+	#define IMG_STARTING_SEQUENCE 210
+	#define IMG_STOPPING_SEQUENCE 296
+	#define SCALED 0
 	
 	
 #else
-	#define YML_LOCATION "/home/pi/Desktop/CS700_RP/Filters/vehicle_detector_all.yml"
+	#define YML_LOCATION "/home/pi/Desktop/CS700_RP/YML/vehicle_detector.yml"
 	#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/second/left/"
 	#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/second/right/"
 	#define IMG_STARTING_SEQUENCE 70
@@ -174,7 +174,7 @@ int main()
 	Point pointLeft;
 	Point pointRight;
 	
-	int fileCount = FileCounter();
+	// int fileCount = FileCounter();
 	
 	//setup_counters();
 	
@@ -215,7 +215,7 @@ int main()
 		//change image_L to resize_imageL if needed
 		#if SCALED
 			//cout << "HI" << endl;
-			hog.detectMultiScale(resize_imageL, detections_L, weights_L, 0, Size(8,8), Size(), 1.03, 2.0, false);
+			hog.detectMultiScale(resize_imageL, detections_L, weights_L, 0, Size(8,8), Size(), 1.05, 2.0, false);
 		#else
 			hog.detectMultiScale(image_L, detections_L, weights_L, 0, Size(8,8), Size(), 1.05, 2.0, false);
 		#endif
@@ -243,9 +243,9 @@ int main()
 					
 #if LOOP
 		// Loop back the video
-		if(i == fileCount - 1)
+		if(i == IMG_STOPPING_SEQUENCE - 1)
 		{
-			i = 0;
+			i = IMG_STARTING_SEQUENCE;
 		}
 #endif	
 		
@@ -287,8 +287,11 @@ void PreProcessing(Mat &imageL, Mat &imageR)
 void FileNameDetermine(int order, String &fileName_L, String &fileName_R)
 {
 	//File Prefix
-	String FILE_PREFIX_L = "I1_000";
-	String FILE_PREFIX_R = "I2_000";
+	//~ String FILE_PREFIX_L = "I1_000";
+	//~ String FILE_PREFIX_R = "I2_000";
+
+	String FILE_PREFIX_L = "0000000";
+	String FILE_PREFIX_R = "0000000";
 	
 
 	if (order < 10)
