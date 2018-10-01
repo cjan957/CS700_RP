@@ -40,7 +40,7 @@ cv::Mat DepthMap(cv::Mat &imageL, cv::Mat &imageR)
     Mat left_disp,right_disp;
     Mat filtered_disp;
     int max_disp = 64; // n*16
-    int wsize = 17;
+    int wsize = 15;
 
 	//~ max_disp/=2;
     //~ if(max_disp%16!=0)
