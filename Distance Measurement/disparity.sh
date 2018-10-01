@@ -1,5 +1,5 @@
 echo Compiling..
 
-g++ $(pkg-config --libs --cflags opencv) -o disp_GT Disparity_GT.cpp
+g++ $(pkg-config --libs --cflags opencv) -o disp_EVAL Disparity_EVAL.cpp
 
-./disp_GT
+./disp_EVAL

@@ -22,21 +22,14 @@
 #include <stdlib.h>
 #include <math.h>
 #include <cstdint>
+#include <stdio.h>
+#include <dirent.h>
+#include <string>
 
 using namespace std;
 using namespace cv;
 
 Mat disp_GT, leftImg, rightImg, depthMap;
-
-void pixelValue(int event, int x, int y, int flags, void* userdata)
-{
-	if (event == EVENT_LBUTTONDOWN)
-	{
-		cout << "Pixel value at (" << x << "," << y << "): " << (float)disp_GT.at<uint16_t>(y, x) << endl;
-		cout << "Disparity value at (" << x << "," << y << "): " << ((float)disp_GT.at<uint16_t>(y, x)) / 256 << endl;
-		cout << "==========================================" << endl;
-	}
-}
 
 cv::Mat DepthMap(cv::Mat &imageL, cv::Mat &imageR)
 {
@@ -46,8 +39,8 @@ cv::Mat DepthMap(cv::Mat &imageL, cv::Mat &imageR)
     Mat right_for_matcher = imageR;
     Mat left_disp,right_disp;
     Mat filtered_disp;
-    int max_disp = 256; // n*16
-    int wsize = 15;
+    int max_disp = 64; // n*16
+    int wsize = 17;
 
 	//~ max_disp/=2;
     //~ if(max_disp%16!=0)
@@ -109,64 +102,56 @@ cv::Mat DepthMap(cv::Mat &imageL, cv::Mat &imageR)
     cv::ximgproc::getDisparityVis(filtered_disp,filtered_disp_vis, vis_mult);
 
 
-    return filtered_disp_vis;  // rerturning de depth map image.
+    return filtered_disp_vis;  
 }
+
 
 int main()
 {
-	disp_GT = imread("/home/pi/Desktop/CS700_RP/stereo_dataset/disparity_GT/disp_occ/000172_10.png", IMREAD_ANYDEPTH);
-
-	leftImg = imread("/home/pi/Desktop/CS700_RP/stereo_dataset/disparity_GT/image_0/000172_10.png", IMREAD_ANYDEPTH);
-	rightImg = imread("/home/pi/Desktop/CS700_RP/stereo_dataset/disparity_GT/image_1/000172_10.png", IMREAD_ANYDEPTH);
+		
+    DIR *dir;
+	struct dirent *ent;
 	
-	//~ imshow("LEFT" , leftImg);
-	//~ imshow("RIGHT", rightImg);
-
-	imshow("disp_GT", disp_GT);
-
-	int x, y;
-	x = 1001;
-	y = 303;
-
-	//~ cout << "Pixel value at (" << x << "," << y << "): " << (float)disp_GT.at<uint16_t>(y,x) << endl;
-	//~ cout << "Disparity value at (" << x << "," << y << "): " << ((float) disp_GT.at<uint16_t>(y, x)) / 256 << endl;
-	//~ cout << "==========================================" << endl;
-
-	//~ setMouseCallback("disp_GT", pixelValue, NULL);
+	int fileCount;
 	
-	Mat true_map;
-	
-	depthMap = DepthMap(leftImg, rightImg);
-	
-	Mat orig_depthMap = Mat(leftImg.size().height, leftImg.size().width, CV_16S);
-	
-	Ptr<StereoSGBM> disparity  = StereoSGBM::create(0,256,15);
-	
-	disparity->compute(leftImg,rightImg,orig_depthMap);
-					
-	orig_depthMap.convertTo(true_map, CV_32F, 1.0/16.0, 0.0);
-	
-	//~ cout << "Original Depth Map" << endl;
-	//~ cout << "Pixel value at (" << x << "," << y << "): " << (float) orig_depthMap.at<uint16_t>(y,x) << endl;
-	//~ cout << "Disparity value at (" << x << "," << y << "): " << ((float) orig_depthMap.at<uint16_t>(y, x)) / 256 << endl;
-	//~ cout << "==========================================" << endl;
-	
-	//~ cout << "Converted Depth Map (32 bit float)" << endl;
-	//~ cout << "Pixel value at (" << x << "," << y << "): " << true_map.at<float>(y,x) << endl;
-	//~ cout << "Disparity value at (" << x << "," << y << "): " << (true_map.at<float>(y, x)) / 256 << endl;
-	//~ cout << "==========================================" << endl;
-	
-	imshow("True Calculated Depth Map", orig_depthMap);
-	
-	//~ cout << "Filtered Depth Map" << endl;
-	//~ cout << "Pixel value at (" << x << "," << y << "): " << (float)depthMap.at<uint16_t>(y,x) << endl;
-	//~ cout << "Disparity value at (" << x << "," << y << "): " << ((float) depthMap.at<uint16_t>(y, x)) / 256 << endl;
+	const string root = "/home/pi/Desktop/CS700_RP/stereo_dataset/Middlebury/trainingF/";
 	
 	
-	imshow("Depth Map", depthMap);
-	
-	
-
-	waitKey(0);
-
+	if ((dir = opendir ("/home/pi/Desktop/CS700_RP/stereo_dataset/Middlebury/trainingF/")) != NULL) {
+	/* print all the files and directories within directory */
+		while ((ent = readdir (dir)) != NULL) {
+			stringstream ss;
+			string currentDir;
+			string path;
+			
+			ss << ent->d_name;
+			ss >> currentDir;
+			
+			currentDir += "/";
+			
+			path = root + currentDir;
+			
+			cout << "Processing: " << currentDir << endl;
+			
+			try {
+				
+				leftImg = imread(path + "im0.png", IMREAD_ANYDEPTH);
+				rightImg = imread(path + "im1.png", IMREAD_ANYDEPTH);
+						
+				depthMap = DepthMap(leftImg, rightImg);		
+				imwrite(path + "disp0SBM.png", depthMap);
+							
+				
+			} catch(...) {
+			 	cout << "Error processing : " << currentDir << endl;
+			}
+						
+			// printf ("%s\n", ent->d_name);
+	}
+	closedir (dir);
+	} else {
+		/* could not open directory */
+		perror ("");
+		return EXIT_FAILURE;
+	}
 }
