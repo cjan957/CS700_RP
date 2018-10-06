@@ -64,11 +64,11 @@ cv::Mat DepthMap(cv::Mat &imageL, cv::Mat &imageR)
     cv::Ptr<cv::ximgproc::DisparityWLSFilter> wls_filter;
 
     // BM
-    cv::Ptr<cv::StereoBM >left_matcher = cv::StereoBM::create(max_disp,wsize);
+    //~ cv::Ptr<cv::StereoBM >left_matcher = cv::StereoBM::create(max_disp,wsize);
     
     // SGBM
-    //~ Ptr<StereoSGBM> left_matcher  = StereoSGBM::create(0,max_disp,wsize);
-    //~ left_matcher->setMode(StereoSGBM::MODE_SGBM);
+    Ptr<StereoSGBM> left_matcher  = StereoSGBM::create(0,max_disp,wsize);
+    left_matcher->setMode(StereoSGBM::MODE_SGBM);
     
     wls_filter = cv::ximgproc::createDisparityWLSFilter(left_matcher);
     cv::Ptr<cv::StereoMatcher> right_matcher = cv::ximgproc::createRightMatcher(left_matcher);
@@ -139,7 +139,7 @@ int main()
 				rightImg = imread(path + "im1.png", IMREAD_ANYDEPTH);
 						
 				depthMap = DepthMap(leftImg, rightImg);		
-				imwrite(path + "disp0SBM.png", depthMap);
+				imwrite(path + "disp0SGBM.png", depthMap);
 							
 				
 			} catch(...) {

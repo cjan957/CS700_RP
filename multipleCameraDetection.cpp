@@ -48,6 +48,8 @@ using namespace cv::xfeatures2d;
 //1 for first, 0 for second dataset
 #define DATASET 0
 
+//0 for L only, 1 for R only, 2 for L AND R, 3 for L OR R
+#define CAMERA_MODE 2
 
 #define DEBUG 0
 
@@ -113,7 +115,7 @@ Ptr<SVM> LoadTrainingFile();
 int FileCounter();
 void SetupHOG(HOGDescriptor &hog, Ptr<SVM> svm);
 
-void PreProcessing(Mat &imageL, Mat &imageR);
+void PreProcessing(Mat &image);
 void FileNameDetermine(int order, String &fileName_L, String &fileName_R);
 
 void CheckAndDraw(Mat &image, vector<Rect> &detections, vector<double> &foundWeights);
@@ -133,7 +135,7 @@ string estimateDistance(Rect &detections);
 int main()
 {
 	
-	setNumThreads(0); //force to 1 core
+	//setNumThreads(0); //force to 1 core
 
 	Ptr<SVM> svm;
 	svm = LoadTrainingFile();
@@ -156,6 +158,8 @@ int main()
 	Mat ROI_L, ROI_R;
 	Mat ROI_disp_L, ROI_disp_R;
 	
+	Mat finalImage;
+	
 
 	//StereoBM
 	Ptr<StereoBM> sbm; 
@@ -174,10 +178,7 @@ int main()
 	Point pointLeft;
 	Point pointRight;
 	
-	int fileCount = FileCounter();
-	
-	//setup_counters();
-	
+		
 	String fileName_L, fileName_R;
 	
 	time_t start, end;
@@ -190,58 +191,142 @@ int main()
 		cout << i << endl;
 		FileNameDetermine(i, fileName_L, fileName_R);
 		
-		
 		image_L = imread(L_CAMERA_SRC_DIR + fileName_L);
 		image_R = imread(R_CAMERA_SRC_DIR + fileName_R);
+		finalImage = imread(L_CAMERA_SRC_DIR + fileName_L);
+		
+		#if CAMERA_MODE == 1
+			finalImage = imread(R_CAMERA_SRC_DIR + fileName_R);
+		#endif
+
+		#if USE_GAUSSIAN
+			PreProcessing(image_L);
+			PreProcessing(image_R);
+		#endif
 		
 		original_image_L = image_L;
 		original_image_R = image_R;
 		
-		PreProcessing(image_L, image_R);
-		
-		//resize image for HOG processing
-		// resize(image_L, resize_imageL, Size(), 0.5, 0.5);
-		//resize(image_R, resize_imageR, Size(), 0.5, 0.5);
-		
-		//cout << "Size original: " << image_L.size() << endl;
-		//cout << "Size modified: "  << resize_imageL.size() << endl;
-		
-		//crop the image by ROI
-		//Rect roi = Rect(0,0, ROI_X, ROI_Y);
-		// Rect roi = Rect(0, 0, image_L.size().width, image_L.size().height);
-		
-		// image_L = Mat(image_L, roi);
-		// image_R = Mat(image_R, roi);
-		
-		//change image_L to resize_imageL if needed
-		//~ cout << "Press Enter to start HoG" << endl;
-		//~ cin.get();
-		#if SCALED
-			//cout << "HI" << endl;
-			// hog.detectMultiScale(resize_imageL, detections_L, weights_L, 0, Size(8,8), Size(), 1.05, 2.0, false);
-		#else
-			hog.detectMultiScale(image_L, detections_L, weights_L, 0, Size(8,8), Size(), 1.05, 2.0, false);
-		#endif
-		//~ cout << "Press Enter to end disparity map" << endl;
-		//~ cin.get();
 		filteredDetections_L.clear();
 		filteredWeights_L.clear();
 		
+		filteredDetections_R.clear();
+		filteredWeights_R.clear();
 		
+#if CAMERA_MODE == 0 || CAMERA_MODE == 2 || CAMERA_MODE == 3
+		cout << "LEFT camera detection " << endl;
+		hog.detectMultiScale(image_L, detections_L, weights_L, 0, Size(8,8), Size(), 1.05, 2.0, false);
 		HOGConfidenceFilter(detections_L, weights_L, filteredDetections_L, filteredWeights_L);	
+#endif
+
+#if CAMERA_MODE == 1 || CAMERA_MODE == 2 || CAMERA_MODE == 3
+		cout << "RIGHT camera detection " << endl;
+		hog.detectMultiScale(image_R, detections_R, weights_R, 0, Size(8,8), Size(), 1.05, 2.0, false);
+		HOGConfidenceFilter(detections_R, weights_R, filteredDetections_R, filteredWeights_R);	
+#endif
+		
+	
 		
 		
-		//~ cout << "Press Enter to start disparity map" << endl;
-		//~ cin.get();	
+#if CAMERA_MODE == 2 || CAMERA_MODE == 3
+		vector<Rect> union_detectedLocation;
+		vector<double> union_weights;
+
+		for (size_t j = 0; j < filteredDetections_L.size(); j++)
+		{
+			for (size_t k = 0; k < filteredDetections_R.size(); k++)
+			{
+				Rect crossCheck = filteredDetections_L[j] & filteredDetections_R[k];
+
+				double overlap_percentageA = float(crossCheck.area()) / filteredDetections_L[j].area() * 100;
+				double overlap_percentageB = float(crossCheck.area()) / filteredDetections_R[k].area() * 100;
+
+				if (overlap_percentageA >= 50 && overlap_percentageB >= 50) {
+
+					if (crossCheck.area() == filteredDetections_R[k].area())
+					{
+						cout << "right is in left" << endl;
+						union_detectedLocation.push_back(filteredDetections_L[j]);
+						union_weights.push_back((weights_L[j] + weights_R[k]) / 2);
+					}
+					else if (crossCheck.area() == filteredDetections_L[j].area())
+					{
+						cout << "left is in right" << endl;
+						union_detectedLocation.push_back(filteredDetections_L[j]);
+						union_weights.push_back((weights_L[j] + weights_R[k]) / 2);
+					}
+					else
+					{
+						cout << "they're just overlapping, push to vector later" << endl;
+						union_detectedLocation.push_back(filteredDetections_L[j]);
+						union_weights.push_back((weights_L[j] + weights_R[k]) / 2);
+					}
+				}
+
+#if CAMERA_MODE == 3 // OR Detection, push detected L or R anyway
+				else
+				{
+					union_detectedLocation.push_back(filteredDetections_L[j]);
+					union_weights.push_back((weights_L[j] + weights_R[k]) / 2);
+				}
+#endif
+
+			}
+		}
+#endif
+
+	double confidence;
+
+#if CAMERA_MODE == 0 || CAMERA_MODE == 2 || CAMERA_MODE == 3
+		cout << "size of filtered detection L " << filteredDetections_L.size() << endl;
+		for (size_t j = 0; j < filteredDetections_L.size(); j++)
+		{
+			confidence = filteredWeights_L[j] * filteredWeights_L[j];
+			Scalar colour = Scalar(0, confidence * 200, 0);
+			rectangle(finalImage, filteredDetections_L[j], colour, finalImage.cols / 400 + 1);
+		}
+#endif
+
+#if CAMERA_MODE == 1 || CAMERA_MODE == 2 || CAMERA_MODE == 3
+		for (size_t j = 0; j < filteredDetections_R.size(); j++)
+		{
+			confidence = filteredWeights_R[j] * filteredWeights_R[j];
+			Scalar colour = Scalar(0, confidence * 200, 0);
+			rectangle(image_R, filteredDetections_R[j], colour, image_R.cols / 400 + 1);
+		}
+#endif
+
+#if CAMERA_MODE == 2 || CAMERA_MODE == 3
+
+		//union
+		for (size_t k = 0; k < union_detectedLocation.size(); k++)
+		{
+			confidence = union_weights[k] * union_weights[k];
+			Scalar colour = Scalar(0, confidence * 200, 0);
+			rectangle(finalImage, union_detectedLocation[k], colour, finalImage.cols / 400 + 1);
+		}
+
+#endif
+
+		
+
 		depthMap = DepthMap(image_L, image_R);
-		
 		imshow("Depth Map", depthMap);
 			
 		//-----------------------------------------------------------------
 		
 		
-		CheckAndDraw(original_image_L, filteredDetections_L, filteredWeights_L);		
-		imshow("L Vehicle Detection (Sequence)", original_image_L);
+#if CAMERA_MODE == 0 || CAMERA_MODE == 2 || CAMERA_MODE == 3
+		imshow("Detection Left", finalImage);
+#endif
+
+#if CAMERA_MODE == 1 || CAMERA_MODE == 2 || CAMERA_MODE == 3
+		imshow("Detection Right", image_R);
+#endif
+
+#if CAMERA_MODE == 2 || CAMERA_MODE == 3
+		imshow("Combined", finalImage);
+#endif
 		
 					
 #if LOOP
@@ -272,17 +357,13 @@ int main()
 	//stop_counters();	
 }
 
-void PreProcessing(Mat &imageL, Mat &imageR)
+void PreProcessing(Mat &image)
 {
 	
-	cvtColor(imageL, imageL, CV_BGR2GRAY);
-	// grayL = imageL;
-	cvtColor(imageR, imageR, CV_BGR2GRAY);
-	// grayR = imageR;
+	cvtColor(image, image, CV_BGR2GRAY);
 	
 	#if USE_GAUSSIAN
-	GaussianBlur(imageL, imageL, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
-	GaussianBlur(imageR, imageR, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
+	GaussianBlur(image, image, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
 	#endif
 }
 
@@ -352,6 +433,7 @@ Ptr<SVM> LoadTrainingFile()
 {
 	clog << "Loading the Training file.. Please wait.. " << endl;
 	Ptr<SVM> svm = StatModel::load<SVM>(YML_LOCATION);
+	
 	return svm;
 }
 
