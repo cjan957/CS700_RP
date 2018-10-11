@@ -68,7 +68,7 @@ using namespace cv::xfeatures2d;
 #define TEXTURETHRESHOLD 0.0002
 
 //Preprocessing configs
-#define USE_GAUSSIAN 1
+#define USE_GAUSSIAN 0
 #define GAUSSIAN_KERNEL_SIZE Size(3,3)
 
 //Settings
@@ -186,10 +186,13 @@ int main()
 	
 	Mat resize_imageL, resize_imageR;
 	
-	for (int i = IMG_STARTING_SEQUENCE; i < IMG_STOPPING_SEQUENCE; i++)
+	for (int i = 27; i < IMG_STOPPING_SEQUENCE; i++)
 	{
 		cout << i << endl;
 		FileNameDetermine(i, fileName_L, fileName_R);
+		
+		//cout << "Press Enter to start one frame processing" << endl;
+		//cin.get();	
 		
 		image_L = imread(L_CAMERA_SRC_DIR + fileName_L);
 		image_R = imread(R_CAMERA_SRC_DIR + fileName_R);
@@ -199,10 +202,9 @@ int main()
 			finalImage = imread(R_CAMERA_SRC_DIR + fileName_R);
 		#endif
 
-		#if USE_GAUSSIAN
+		
 			PreProcessing(image_L);
 			PreProcessing(image_R);
-		#endif
 		
 		original_image_L = image_L;
 		original_image_R = image_R;
@@ -228,7 +230,7 @@ int main()
 	
 		
 		
-#if CAMERA_MODE == 2 || CAMERA_MODE == 3
+#if CAMERA_MODE == 2
 		vector<Rect> union_detectedLocation;
 		vector<double> union_weights;
 
@@ -247,19 +249,19 @@ int main()
 					{
 						cout << "right is in left" << endl;
 						union_detectedLocation.push_back(filteredDetections_L[j]);
-						union_weights.push_back((weights_L[j] + weights_R[k]) / 2);
+						union_weights.push_back((weights_L[j] + weights_R[k]));
 					}
 					else if (crossCheck.area() == filteredDetections_L[j].area())
 					{
 						cout << "left is in right" << endl;
 						union_detectedLocation.push_back(filteredDetections_L[j]);
-						union_weights.push_back((weights_L[j] + weights_R[k]) / 2);
+						union_weights.push_back((weights_L[j] + weights_R[k]));
 					}
 					else
 					{
 						cout << "they're just overlapping, push to vector later" << endl;
 						union_detectedLocation.push_back(filteredDetections_L[j]);
-						union_weights.push_back((weights_L[j] + weights_R[k]) / 2);
+						union_weights.push_back((weights_L[j] + weights_R[k]));
 					}
 				}
 
@@ -283,7 +285,7 @@ int main()
 		{
 			confidence = filteredWeights_L[j] * filteredWeights_L[j];
 			Scalar colour = Scalar(0, confidence * 200, 0);
-			rectangle(finalImage, filteredDetections_L[j], colour, finalImage.cols / 400 + 1);
+			rectangle(image_L, filteredDetections_L[j], colour, image_L.cols / 400 + 1);
 		}
 #endif
 
@@ -296,7 +298,7 @@ int main()
 		}
 #endif
 
-#if CAMERA_MODE == 2 || CAMERA_MODE == 3
+#if CAMERA_MODE == 2 
 
 		//union
 		for (size_t k = 0; k < union_detectedLocation.size(); k++)
@@ -310,23 +312,32 @@ int main()
 
 		
 
-		depthMap = DepthMap(image_L, image_R);
-		imshow("Depth Map", depthMap);
+		//depthMap = DepthMap(image_L, image_R);
+		//imshow("Depth Map", depthMap);
 			
 		//-----------------------------------------------------------------
 		
 		
 #if CAMERA_MODE == 0 || CAMERA_MODE == 2 || CAMERA_MODE == 3
-		imshow("Detection Left", finalImage);
+		imshow("Detection Left", image_L);
 #endif
 
 #if CAMERA_MODE == 1 || CAMERA_MODE == 2 || CAMERA_MODE == 3
 		imshow("Detection Right", image_R);
 #endif
 
-#if CAMERA_MODE == 2 || CAMERA_MODE == 3
+#if CAMERA_MODE == 2 
 		imshow("Combined", finalImage);
 #endif
+	
+
+		
+		//imwrite("/home/pi/Desktop/CS700_RP/image_L.jpg", image_L);
+		//imwrite("/home/pi/Desktop/CS700_RP/image_R.jpg", image_R);
+		//imwrite("/home/pi/Desktop/CS700_RP/finalImage.jpg", finalImage);
+		
+		cout << "One frame done, enter to move to the next frame" << endl;
+		cin.get();
 		
 					
 #if LOOP
@@ -360,10 +371,10 @@ int main()
 void PreProcessing(Mat &image)
 {
 	
-	cvtColor(image, image, CV_BGR2GRAY);
+	//cvtColor(image, image, CV_BGR2GRAY);
 	
 	#if USE_GAUSSIAN
-	GaussianBlur(image, image, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
+		GaussianBlur(image, image, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
 	#endif
 }
 
