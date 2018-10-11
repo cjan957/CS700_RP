@@ -186,7 +186,7 @@ int main()
 	
 	Mat resize_imageL, resize_imageR;
 	
-	for (int i = 27; i < IMG_STOPPING_SEQUENCE; i++)
+	for (int i = IMG_STARTING_SEQUENCE; i < IMG_STOPPING_SEQUENCE; i++)
 	{
 		cout << i << endl;
 		FileNameDetermine(i, fileName_L, fileName_R);
