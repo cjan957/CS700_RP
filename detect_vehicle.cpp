@@ -40,9 +40,9 @@ using namespace cv::ml;
 using namespace cv::xfeatures2d;
 
 //Location of files
-#define YML_LOCATION "/home/pi/Desktop/CS700_RP/vehicle_detector_filter.yml"
-#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left/"
-#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_right/"
+#define YML_LOCATION "/home/pi/Desktop/CS700_RP/YML/vehicle_detector_new.yml"
+#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/city/left/"
+#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/city/right/"
 
 #define DEBUG 0
 
@@ -64,10 +64,11 @@ using namespace cv::xfeatures2d;
 #define GAUSSIAN_KERNEL_SIZE Size(3,3)
 
 //Starting image sequence
-#define IMG_STARTING_SEQUENCE 140
+#define IMG_STARTING_SEQUENCE 10
+#define IMG_STOPPING_SEQUENCE 60 
 
 //Settings
-#define CONFIDENCE_THRESHOLD 0.5
+#define CONFIDENCE_THRESHOLD 0.7
 #define BYPASS_CONFIDENCE_CHECK 0
 
 //ROI, cropping x and y
@@ -172,7 +173,7 @@ int main()
 	
 	
 	
-	for (int i = IMG_STARTING_SEQUENCE; i <= IMG_STARTING_SEQUENCE + 10; i++)
+	for (int i = IMG_STARTING_SEQUENCE; i <= IMG_STOPPING_SEQUENCE; i++)
 	{
 		cout << i << endl;
 		FileNameDetermine(i, fileName_L, fileName_R);
@@ -298,9 +299,8 @@ void PreProcessing(Mat &imageL, Mat &imageR)
 
 void FileNameDetermine(int order, String &fileName_L, String &fileName_R)
 {
-	//File Prefix
-	String FILE_PREFIX_L = "I1_000";
-	String FILE_PREFIX_R = "I2_000";
+	String FILE_PREFIX_L = "0000000";
+	String FILE_PREFIX_R = "0000000";
 	
 
 	if (order < 10)

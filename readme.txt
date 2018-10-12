@@ -1,1 +1,0 @@
-http://www.cvlibs.net/datasets/karlsruhe_sequences/ - Karlsruhe Dataset: Stereo Video Sequences + rough GPS Poses AVG

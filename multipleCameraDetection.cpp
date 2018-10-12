@@ -312,8 +312,8 @@ int main()
 
 		
 
-		//depthMap = DepthMap(image_L, image_R);
-		//imshow("Depth Map", depthMap);
+		depthMap = DepthMap(image_L, image_R);
+		imshow("Depth Map", depthMap);
 			
 		//-----------------------------------------------------------------
 		
@@ -336,8 +336,8 @@ int main()
 		//imwrite("/home/pi/Desktop/CS700_RP/image_R.jpg", image_R);
 		//imwrite("/home/pi/Desktop/CS700_RP/finalImage.jpg", finalImage);
 		
-		cout << "One frame done, enter to move to the next frame" << endl;
-		cin.get();
+		//cout << "One frame done, enter to move to the next frame" << endl;
+		//cin.get();
 		
 					
 #if LOOP
@@ -371,7 +371,7 @@ int main()
 void PreProcessing(Mat &image)
 {
 	
-	//cvtColor(image, image, CV_BGR2GRAY);
+	cvtColor(image, image, CV_BGR2GRAY);
 	
 	#if USE_GAUSSIAN
 		GaussianBlur(image, image, cv::GAUSSIAN_KERNEL_SIZE, 0, 0, BORDER_DEFAULT);
@@ -380,11 +380,7 @@ void PreProcessing(Mat &image)
 
 
 void FileNameDetermine(int order, String &fileName_L, String &fileName_R)
-{
-	//File Prefix
-	//~ String FILE_PREFIX_L = "I1_000";
-	//~ String FILE_PREFIX_R = "I2_000";
-	
+{	
 	String FILE_PREFIX_L = "0000000";
 	String FILE_PREFIX_R = "0000000";
 	

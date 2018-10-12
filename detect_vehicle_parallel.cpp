@@ -42,9 +42,9 @@ using namespace cv::ml;
 using namespace cv::xfeatures2d;
 
 //Location of files
-#define YML_LOCATION "/home/pi/Desktop/CS700_RP/vehicle_detector_filter.yml"
-#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left/"
-#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/resize_right/"
+#define YML_LOCATION "/home/pi/Desktop/CS700_RP/YML/vehicle_detector_new.yml"
+#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/city/left/"
+#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/city/right/"
 
 
 //HOG configs
@@ -65,10 +65,11 @@ using namespace cv::xfeatures2d;
 #define GAUSSIAN_KERNEL_SIZE Size(3,3)
 
 //Starting image sequence
-#define IMG_STARTING_SEQUENCE 140
+#define IMG_STARTING_SEQUENCE 10
+#define IMG_STOPPING_SEQUENCE 60 
 
 //Settings
-#define CONFIDENCE_THRESHOLD 0.5
+#define CONFIDENCE_THRESHOLD 0.7
 #define BYPASS_CONFIDENCE_CHECK 0
 
 //ROI, cropping x and y
@@ -139,7 +140,7 @@ void GrabLeftImage(string name)
 	image = Mat(image, roi);
 	image_L = image;
 	
-	hog_L.detectMultiScale(image, detections_L, weights_L);
+	hog_L.detectMultiScale(image_L, detections_L, weights_L, 0, Size(8,8), Size(), 1.05, 2.0, false);
 	
 	filteredDetections_L.clear();
 	filteredWeights_L.clear();
@@ -157,8 +158,8 @@ void GrabRightImage(string name)
 	image = Mat(image, roi);
 	image_R = image;
 	
-	hog_R.detectMultiScale(image, detections_R, weights_R);
-	
+	hog_R.detectMultiScale(image, detections_R, weights_R, 0, Size(8,8), Size(), 1.05, 2.0, false);
+		
 	filteredDetections_R.clear();
 	filteredWeights_R.clear();
 	HOGConfidenceFilter(detections_R, weights_R, filteredDetections_R, filteredWeights_R);
@@ -206,7 +207,7 @@ int main()
 	time_t start, end;
 	time(&start);
 	
-	for(int i = IMG_STARTING_SEQUENCE; i < IMG_STARTING_SEQUENCE + 10; i++)
+	for(int i = IMG_STARTING_SEQUENCE; i < IMG_STOPPING_SEQUENCE; i++)
 	{
 		FileNameDetermine(i, fileName_L, fileName_R);
 		
@@ -227,7 +228,7 @@ int main()
 		
 		normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
 		
-		imshow("Disparity Map - FULL", disp8);
+		//imshow("Disparity Map - FULL", disp8);
 		
 		stringstream stream;
 		string s;
@@ -303,9 +304,8 @@ void PreProcessing(Mat &imageL, Mat &imageR)
 
 void FileNameDetermine(int order, String &fileName_L, String &fileName_R)
 {
-	//File Prefix
-	String FILE_PREFIX_L = "I1_000";
-	String FILE_PREFIX_R = "I2_000";
+	String FILE_PREFIX_L = "0000000";
+	String FILE_PREFIX_R = "0000000";
 	
 
 	if (order < 10)
