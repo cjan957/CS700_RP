@@ -1,6 +1,0 @@
-*.yml
-/non-vehicles
-/stereo_dataset
-/vehicles
-*.o
-/YOLO
