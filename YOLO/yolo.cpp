@@ -24,11 +24,11 @@ using namespace cv;
 using namespace cv::dnn;
 
 //Starting image sequence
-#define IMG_STARTING_SEQUENCE 65
-#define IMG_STOPPING_SEQUENCE 200
+#define IMG_STARTING_SEQUENCE 10
+#define IMG_STOPPING_SEQUENCE 60
 
-#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/third/left/"
-#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/third/right/"
+#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/city/left/"
+#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/city/right/"
 
 // Initialize the parameters
 float confThreshold = 0.5; // Confidence threshold
@@ -60,42 +60,6 @@ const double FOCAL = 721; // 645.24; //Karlsruhe : 647.1884; // Focal Length in 
 
 int main()
 {
-
-
-	// Stereo Rectification
-	cv::Mat K0 = (cv::Mat_<double>(3, 3) << 1457.572438721727, 0, 1212.945694211622, 0, 1457.522226502963, 1007.32058848921, 0, 0, 1);
-	cv::Mat kk0 = cv::Mat_<double>::zeros(1, 5);
-	cv::Mat K1 = (cv::Mat_<double>(3, 3) << 1460.868570835972, 0, 1215.024068023046, 0, 1460.791367088, 1011.107202932225, 0, 0, 1);
-	cv::Mat kk1 = cv::Mat_<double>::zeros(1, 5);
-
-	cv::Mat R = (cv::Mat_<double>(3, 3) << 0.9985404059825475, 0.02963547172078553, -0.04515303352041626, -0.03103795276460111, 0.9990471552537432, -0.03068268351343364, 0.04420071389006859, 0.03203935697372317, 0.9985087763742083);
-
-	cv::Mat T = (cv::Mat_<double>(3, 1) << 0.9995500167379527, 0.0116311595111068, 0.02764923448462666);
-
-	cv::Size imgsize(2456, 2058);
-
-	cv::Mat R1;
-	cv::Mat R2;
-	cv::Mat P1;
-	cv::Mat P2;
-	cv::Mat Q;
-
-	cv::Rect RL;
-	cv::Rect RR;
-
-	cv::stereoRectify(K0, kk0, K1, kk1, imgsize, R, T, R1, R2, P1, P2, Q, 0, 1.0, imgsize, &RL, &RR);
-
-	std::cout << "Results with OpenCV " << CV_VERSION_MAJOR << "." << CV_VERSION_MINOR << "." << CV_VERSION_REVISION << std::endl;
-	std::cout << "R1 = " << R1 << std::endl;
-	std::cout << "R2 = " << R1 << std::endl;
-	std::cout << "P1 = " << R1 << std::endl;
-	std::cout << "P2 = " << R1 << std::endl;
-	std::cout << " Q = " << Q << std::endl;
-	std::cout << "RL = " << RL << std::endl;
-	std::cout << "RR = " << RR << std::endl;
-
-
-
 	// -----------------------------------------------------------------------
 
 	// Load names of classes
@@ -117,20 +81,6 @@ int main()
 	static const string kWinName = "Deep learning object detection in OpenCV";
 	namedWindow(kWinName, WINDOW_NORMAL); // Makes the window size bigger
 
-	string imageNumber = "000050.png";
-
-	//Mat leftImg = imread("/home/pi/Desktop/CS700_RP/stereo_dataset/resize_left/" + imageNumber);
-	//Mat rightImg = imread("/home/pi/Desktop/CS700_RP/stereo_dataset/resize_right/" + imageNumber);
-
-	//cvtColor(leftImg, g1, COLOR_BGR2GRAY);
-	//cvtColor(rightImg, g2, COLOR_BGR2GRAY);
-
-	// Remove noise by blurring with a Gaussian filter
-	//GaussianBlur(g1, g1, Size(3, 3), 0, 0, BORDER_DEFAULT);
-	//GaussianBlur(g2, g2, Size(3, 3), 0, 0, BORDER_DEFAULT);
-
-
-	// BASICALLY YOU ONLY NEED WHATS FROM HERE AND PUT IT IN A WHILE LOOP!
 	String fileName_L, fileName_R;
 	Mat leftImg, rightImg;
 	
@@ -138,7 +88,6 @@ int main()
 	{
 		FileNameDetermine(i, fileName_L, fileName_R);
 		
-		cout << fileName_L << endl;
 		
 		leftImg = imread(L_CAMERA_SRC_DIR + fileName_L);
 		rightImg = imread(R_CAMERA_SRC_DIR + fileName_R);
@@ -153,7 +102,6 @@ int main()
 		
 		Size imagesize = g1.size();
 
-		cout << "first" << endl;
 		disparity = Mat(imagesize.height, imagesize.width, CV_16S);
 
 		int iValueForNumDisp = 128;
@@ -176,7 +124,6 @@ int main()
 		normalize(disparity, disp8, 0, 255, CV_MINMAX, CV_8U);
 		imshow("disp", disp8);
 		
-		cout << "second" << endl;
 		
 		// Create a 4D blob from a frame.
 		blobFromImage(leftImg, blob, 1 / 255.0, cvSize(inpWidth, inpHeight), Scalar(0, 0, 0), true, false);
@@ -191,7 +138,6 @@ int main()
 		// Remove the bounding boxes with low confidence
 		postprocess(leftImg, outs);
 		
-		cout << "third" << endl;
 
 		// Put efficiency information. The function getPerfProfile returns the overall time for inference(t) and the timings for each of the layers(in layersTimes)
 		vector<double> layersTimes;
@@ -200,14 +146,12 @@ int main()
 		string label = format("Inference time for a frame : %.2f ms", t);
 		putText(leftImg, label, Point(0, 15), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0, 0, 255));
 
-		cout << "fourth" << endl;
 		// Write the frame with the detection boxes
 		Mat detectedFrame;
 		leftImg.convertTo(detectedFrame, CV_8U);
 
 		imshow(kWinName, leftImg);
 		
-		cout << "last" << endl;
 
 		if(waitKey(30) == 27) //escape
 		{ 
@@ -364,9 +308,8 @@ vector<String> getOutputsNames(const Net& net)
 
 void FileNameDetermine(int order, String &fileName_L, String &fileName_R)
 {
-	//File Prefix
-	String FILE_PREFIX_L = "I1_000";
-	String FILE_PREFIX_R = "I2_000";
+	String FILE_PREFIX_L = "0000000";
+	String FILE_PREFIX_R = "0000000";
 	
 
 	if (order < 10)

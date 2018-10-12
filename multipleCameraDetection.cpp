@@ -49,7 +49,7 @@ using namespace cv::xfeatures2d;
 #define DATASET 0
 
 //0 for L only, 1 for R only, 2 for L AND R, 3 for L OR R
-#define CAMERA_MODE 2
+#define CAMERA_MODE 0
 
 #define DEBUG 0
 
@@ -83,24 +83,13 @@ using namespace cv::xfeatures2d;
 #define LOOP_IMAGES 0
 #define PRESS_NEXT 0
 
-#if DATASET
-	#define YML_LOCATION "/home/pi/Desktop/CS700_RP/YML/vehicle_detector_new.yml"
-	#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/city/left/"
-	#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/city/right/"
-	#define IMG_STARTING_SEQUENCE 10
-	#define IMG_STOPPING_SEQUENCE 60
-	#define SCALED 0
+#define YML_LOCATION "/home/pi/Desktop/CS700_RP/YML/vehicle_detector_new.yml"
+#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/city/left/"
+#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/city/right/"
+#define IMG_STARTING_SEQUENCE 10
+#define IMG_STOPPING_SEQUENCE 60
+#define SCALED 0
 	
-	
-#else
-	#define YML_LOCATION "/home/pi/Desktop/CS700_RP/YML/vehicle_detector_new.yml"
-	#define L_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/city/left/"
-	#define R_CAMERA_SRC_DIR "/home/pi/Desktop/CS700_RP/stereo_dataset/city/right/"
-	#define IMG_STARTING_SEQUENCE 10
-	#define IMG_STOPPING_SEQUENCE 60
-	#define SCALED 0
-
-#endif
 
 
 //variables
@@ -514,31 +503,12 @@ cv::Mat DepthMap(cv::Mat &imageL, cv::Mat &imageR)
     int max_disp = 64; // n*16
     int wsize = 15;
 
-	//~ max_disp/=2;
-    //~ if(max_disp%16!=0)
-    //~ {
-		//~ max_disp += 16-(max_disp%16);
-    //~ }
-        
-    // resize(imageL ,left_for_matcher ,Size(),0.5,0.5);
-	// resize(imageR, right_for_matcher,Size(),0.5,0.5);
-
-
-   // Perform matching and create the filter instance
-   /* I am using StereoBM for faster processing. If speed is not critical, 
-   though, StereoSGBM would provide better quality.
-   The filter instance is created by providing the StereoMatcher instance
-   that we intend to use. Another matcher instance is returned by the
-   createRightMatcher function. These two matcher instances are then used
-   to compute disparity maps both for the left and right views, that are
-   required by the filter. */
-
     cv::Ptr<cv::ximgproc::DisparityWLSFilter> wls_filter;
 
     // BM
     cv::Ptr<cv::StereoBM >left_matcher = cv::StereoBM::create(max_disp,wsize);
     
-    // SGBM
+    // SGBM - Comment this out 
     //~ Ptr<StereoSGBM> left_matcher  = StereoSGBM::create(0,max_disp,wsize);
     //~ left_matcher->setMode(StereoSGBM::MODE_SGBM);
     
@@ -547,16 +517,6 @@ cv::Mat DepthMap(cv::Mat &imageL, cv::Mat &imageR)
 
 	left_matcher-> compute(left_for_matcher, right_for_matcher,left_disp);
     right_matcher->compute(right_for_matcher,left_for_matcher, right_disp);
-
-    // Perform filtering
-    /* Disparity maps computed by the respective matcher instances, as
-    well as the source left view are passed to the filter. Note that we
-    are using the original non-downscaled view to guide the filtering 
-    process. 
-    The disparity map is automatically upscaled in an edge-aware fashion
-    to match the original view resolution. The result is stored in
-    filtered_disp. */
-
 
     double lambda = 8000.0;   // hardcode
     double sigma = 2;       // hardcode
@@ -574,7 +534,7 @@ cv::Mat DepthMap(cv::Mat &imageL, cv::Mat &imageR)
     cv::ximgproc::getDisparityVis(filtered_disp,filtered_disp_vis, vis_mult);
 
 
-    return filtered_disp_vis;  // rerturning de depth map image.
+    return filtered_disp_vis;
 }
 
 string estimateDistance(Rect &detections) 
